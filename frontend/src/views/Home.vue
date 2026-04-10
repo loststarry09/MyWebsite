@@ -7,7 +7,7 @@ import NavCard from '../components/NavCard.vue'
     <div class="w-full max-w-3xl">
       <h1 class="mb-8 text-center text-3xl font-semibold text-stone-800">个人导航</h1>
       <div class="grid gap-4 sm:grid-cols-2">
-        <NavCard title="个人主页" subtitle="暂未开放" to="/coming-soon" />
+        <NavCard title="个人主页" subtitle="查看简介" to="/coming-soon" />
         <NavCard
           title="博客"
           subtitle="打开外部博客"
