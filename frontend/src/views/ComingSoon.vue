@@ -1,3 +1,7 @@
+<script setup>
+import { RouterLink } from 'vue-router'
+</script>
+
 <template>
   <section class="space-y-4 rounded-lg border border-stone-200 bg-white p-6">
     <header>
