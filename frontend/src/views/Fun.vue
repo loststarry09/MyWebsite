@@ -1,5 +1,6 @@
 <script setup>
-import { ref } from 'vue'
+import axios from 'axios'
+import { onMounted, ref } from 'vue'
 
 const quotes = [
   '写点代码，也别忘了抬头看看天空。',
@@ -15,7 +16,9 @@ const guess = ref('')
 const resultText = ref('')
 const showAddModal = ref(false)
 const touched = ref(false)
+const submitting = ref(false)
 const funItems = ref([])
+const hasLoadedFunItems = ref(false)
 const form = ref({
   name: '',
   description: '',
@@ -54,9 +57,25 @@ function closeModal() {
   resetForm()
 }
 
-function submitFun() {
+async function fetchFunItems() {
+  const { data } = await axios.get('/api/fun')
+  funItems.value = Array.isArray(data) ? data : []
+  hasLoadedFunItems.value = true
+}
+
+function createFunItem(payload) {
+  return {
+    id: `fun-${Date.now()}`,
+    name: payload.name,
+    description: payload.description,
+    api: payload.api,
+  }
+}
+
+async function submitFun() {
   touched.value = true
   if (
+    submitting.value ||
     !form.value.name.trim() ||
     !form.value.description.trim() ||
     !form.value.api.trim() ||
@@ -66,15 +85,37 @@ function submitFun() {
     return
   }
 
-  funItems.value.unshift({
-    id: `fun-${Date.now()}`,
+  submitting.value = true
+  const payload = {
     name: form.value.name.trim(),
     description: form.value.description.trim(),
     api: form.value.api.trim(),
-  })
+  }
 
-  closeModal()
+  try {
+    await axios.post('/api/fun', payload)
+    try {
+      await fetchFunItems()
+    } catch {
+      funItems.value.unshift(createFunItem(payload))
+    }
+    alert('娱乐项添加成功')
+    closeModal()
+  } catch (error) {
+    const message = error?.response?.data?.message || '娱乐项添加失败，请稍后重试'
+    alert(message)
+  } finally {
+    submitting.value = false
+  }
 }
+
+onMounted(async () => {
+  try {
+    await fetchFunItems()
+  } catch {
+    hasLoadedFunItems.value = false
+  }
+})
 </script>
 
 <template>
@@ -133,7 +174,9 @@ function submitFun() {
       class="mt-6 rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
     >
       <h2 class="text-sm font-medium text-stone-700">我添加的娱乐项</h2>
-      <p v-if="!funItems.length" class="mt-2 text-sm text-stone-500">暂未添加，点击右上角按钮开始。</p>
+      <p v-if="!funItems.length" class="mt-2 text-sm text-stone-500">
+        {{ hasLoadedFunItems ? '后端暂无数据。' : '暂未添加，点击右上角按钮开始。' }}
+      </p>
 
       <ul v-else class="mt-3 space-y-3">
         <li
@@ -210,9 +253,10 @@ function submitFun() {
           <div class="pt-1 text-right">
             <button
               type="submit"
+              :disabled="submitting"
               class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
             >
-              保存
+              {{ submitting ? '提交中...' : '保存' }}
             </button>
           </div>
         </form>

@@ -1,10 +1,14 @@
 <script setup>
-import { computed, ref } from 'vue'
+import axios from 'axios'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { programs } from '../data/programs'
 
 const showAddModal = ref(false)
+const submitting = ref(false)
 const customPrograms = ref([])
+const apiPrograms = ref([])
+const hasLoadedPrograms = ref(false)
 const form = ref({
   name: '',
   description: '',
@@ -14,7 +18,10 @@ const form = ref({
 })
 const touched = ref(false)
 
-const allPrograms = computed(() => [...customPrograms.value, ...programs])
+const allPrograms = computed(() => {
+  const programList = hasLoadedPrograms.value ? apiPrograms.value : programs
+  return [...customPrograms.value, ...programList]
+})
 
 const errors = computed(() => ({
   name: form.value.name.length > 30 ? '项目名称不能超过 30 字' : '',
@@ -48,26 +55,64 @@ function closeModal() {
   resetForm()
 }
 
-function submitForm() {
-  touched.value = true
-  if (!canSubmit.value) return
+async function fetchPrograms() {
+  const { data } = await axios.get('/api/programs')
+  apiPrograms.value = Array.isArray(data) ? data : []
+  hasLoadedPrograms.value = true
+}
 
-  const stack = form.value.techStack
-    .split(/[，,]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-
-  customPrograms.value.unshift({
+function createProgramCard(payload) {
+  return {
     id: `custom-${Date.now()}`,
+    name: payload.name,
+    summary: payload.description,
+    stack: payload.techStack
+      .split(/[，,]/)
+      .map((item) => item.trim())
+      .filter(Boolean),
+    status: payload.status,
+    api: payload.api,
+    isCustom: true,
+  }
+}
+
+async function submitForm() {
+  touched.value = true
+  if (!canSubmit.value || submitting.value) return
+
+  submitting.value = true
+  const payload = {
     name: form.value.name.trim(),
-    summary: form.value.description.trim(),
-    stack,
+    description: form.value.description.trim(),
+    techStack: form.value.techStack.trim(),
     status: form.value.status.trim(),
     api: form.value.api.trim(),
-    isCustom: true,
-  })
-  closeModal()
+  }
+
+  try {
+    await axios.post('/api/program', payload)
+    try {
+      await fetchPrograms()
+    } catch {
+      customPrograms.value.unshift(createProgramCard(payload))
+    }
+    alert('项目添加成功')
+    closeModal()
+  } catch (error) {
+    const message = error?.response?.data?.message || '项目添加失败，请稍后重试'
+    alert(message)
+  } finally {
+    submitting.value = false
+  }
 }
+
+onMounted(async () => {
+  try {
+    await fetchPrograms()
+  } catch {
+    hasLoadedPrograms.value = false
+  }
+})
 </script>
 
 <template>
@@ -201,9 +246,10 @@ function submitForm() {
           <div class="pt-1 text-right">
             <button
               type="submit"
+              :disabled="submitting"
               class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
             >
-              保存
+              {{ submitting ? '提交中...' : '保存' }}
             </button>
           </div>
         </form>
