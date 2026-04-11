@@ -27,6 +27,8 @@ PROGRAMS = [
     },
 ]
 
+FUN_ITEMS = []
+
 
 def get_programs():
     return PROGRAMS
@@ -34,6 +36,20 @@ def get_programs():
 
 def get_program_by_id(program_id: str):
     return next((item for item in PROGRAMS if item["id"] == program_id), None)
+
+
+def add_program(program: dict):
+    PROGRAMS.insert(0, program)
+    return program
+
+
+def get_fun_items():
+    return FUN_ITEMS
+
+
+def add_fun_item(fun_item: dict):
+    FUN_ITEMS.insert(0, fun_item)
+    return fun_item
 
 
 BLOCKED_COMMANDS = {
