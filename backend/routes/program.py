@@ -1,7 +1,7 @@
 from time import time
 from flask import Blueprint, jsonify, request
 
-from services.runner import add_fun_item, add_program, get_program_by_id, get_programs
+from services.runner import add_fun_item, add_program, get_fun_items, get_program_by_id, get_programs
 
 program_bp = Blueprint("program", __name__)
 
@@ -110,3 +110,8 @@ def create_fun():
         "api": api,
     }
     return jsonify(add_fun_item(new_fun)), 201
+
+
+@program_bp.get("/fun")
+def list_fun():
+    return jsonify(get_fun_items())

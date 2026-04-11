@@ -88,6 +88,10 @@ def add_fun_item(fun_item: dict):
     return fun_item
 
 
+def get_fun_items():
+    return FUN_ITEMS
+
+
 BLOCKED_COMMANDS = {
     "rm",
     "rmdir",
