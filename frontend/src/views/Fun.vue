@@ -13,6 +13,14 @@ const currentQuote = ref(quotes[0])
 const dice = ref(1)
 const guess = ref('')
 const resultText = ref('')
+const showAddModal = ref(false)
+const touched = ref(false)
+const funItems = ref([])
+const form = ref({
+  name: '',
+  description: '',
+  api: '',
+})
 
 function randomInt(max) {
   return Math.floor(Math.random() * max)
@@ -31,15 +39,62 @@ function rollDice() {
     resultText.value = `骰子结果：${dice.value}`
   }
 }
+
+function resetForm() {
+  form.value = {
+    name: '',
+    description: '',
+    api: '',
+  }
+  touched.value = false
+}
+
+function closeModal() {
+  showAddModal.value = false
+  resetForm()
+}
+
+function submitFun() {
+  touched.value = true
+  if (
+    !form.value.name.trim() ||
+    !form.value.description.trim() ||
+    !form.value.api.trim() ||
+    form.value.name.length > 30 ||
+    form.value.description.length > 100
+  ) {
+    return
+  }
+
+  funItems.value.unshift({
+    id: `fun-${Date.now()}`,
+    name: form.value.name.trim(),
+    description: form.value.description.trim(),
+    api: form.value.api.trim(),
+  })
+
+  closeModal()
+}
 </script>
 
 <template>
-  <section class="rounded-lg border border-stone-200 bg-white p-6">
-    <h1 class="text-2xl font-semibold text-stone-800">娱乐</h1>
-    <p class="mt-2 text-sm text-stone-500">轻松一下：随机一句话 + 猜骰子小游戏。</p>
+  <section class="rounded-xl border border-stone-200 bg-[#F7F5F2] p-6 shadow-sm transition hover:shadow-md">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <div>
+        <h1 class="text-2xl font-semibold text-stone-800">娱乐</h1>
+        <p class="mt-2 text-sm text-stone-500">轻松一下：随机一句话 + 猜骰子小游戏。</p>
+      </div>
+      <button
+        type="button"
+        class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+        @click="showAddModal = true"
+      >
+        + 添加娱乐
+      </button>
+    </div>
 
     <div class="mt-6 grid gap-4 md:grid-cols-2">
-      <article class="rounded-lg border border-stone-200 p-4">
+      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow">
         <h2 class="text-sm font-medium text-stone-700">今日随机一句</h2>
         <p class="mt-3 min-h-12 text-sm text-stone-600">{{ currentQuote }}</p>
         <button
@@ -51,7 +106,7 @@ function rollDice() {
         </button>
       </article>
 
-      <article class="rounded-lg border border-stone-200 p-4">
+      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow">
         <h2 class="text-sm font-medium text-stone-700">猜骰子</h2>
         <div class="mt-3 flex items-center gap-2">
           <label for="guess-input" class="text-sm text-stone-600">猜 1~6：</label>
@@ -72,6 +127,96 @@ function rollDice() {
         </div>
         <p class="mt-3 text-sm text-stone-600">{{ resultText || '输入数字后开始。' }}</p>
       </article>
+    </div>
+
+    <article
+      class="mt-6 rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+    >
+      <h2 class="text-sm font-medium text-stone-700">我添加的娱乐项</h2>
+      <p v-if="!funItems.length" class="mt-2 text-sm text-stone-500">暂未添加，点击右上角按钮开始。</p>
+
+      <ul v-else class="mt-3 space-y-3">
+        <li
+          v-for="item in funItems"
+          :key="item.id"
+          class="rounded-lg border border-stone-200 bg-[#F7F5F2] p-3"
+        >
+          <p class="text-sm font-medium text-stone-800">{{ item.name }}</p>
+          <p class="mt-1 text-sm text-stone-600">{{ item.description }}</p>
+          <p class="mt-2 text-xs text-stone-500">
+            接口：<span class="break-all text-stone-700">{{ item.api }}</span>
+          </p>
+        </li>
+      </ul>
+    </article>
+
+    <div
+      v-if="showAddModal"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/35 p-4"
+      @click.self="closeModal"
+    >
+      <div class="w-full max-w-lg rounded-xl border border-stone-200 bg-[#F7F5F2] p-5 shadow-xl">
+        <div class="flex items-center justify-between">
+          <h2 class="text-lg font-semibold text-stone-800">添加娱乐</h2>
+          <button
+            type="button"
+            class="rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:bg-stone-100"
+            @click="closeModal"
+          >
+            关闭
+          </button>
+        </div>
+
+        <form class="mt-4 space-y-3" @submit.prevent="submitFun">
+          <div>
+            <label class="mb-1 block text-sm text-stone-700">娱乐名称（30字以内）</label>
+            <input
+              v-model="form.name"
+              maxlength="30"
+              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-stone-500"
+            />
+            <p v-if="touched && !form.name.trim()" class="mt-1 text-xs text-rose-500">请输入娱乐名称</p>
+            <p v-else-if="form.name.length > 30" class="mt-1 text-xs text-rose-500">
+              娱乐名称不能超过 30 字
+            </p>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-sm text-stone-700">描述（100字以内）</label>
+            <textarea
+              v-model="form.description"
+              maxlength="100"
+              rows="3"
+              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-stone-500"
+            />
+            <p v-if="touched && !form.description.trim()" class="mt-1 text-xs text-rose-500">请输入描述</p>
+            <p v-else-if="form.description.length > 100" class="mt-1 text-xs text-rose-500">
+              描述不能超过 100 字
+            </p>
+          </div>
+
+          <div>
+            <label class="mb-1 block text-sm text-stone-700">后端接口地址</label>
+            <input
+              v-model="form.api"
+              placeholder="例如：http://127.0.0.1:5000/api/fun"
+              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-stone-500"
+            />
+            <p v-if="touched && !form.api.trim()" class="mt-1 text-xs text-rose-500">
+              请输入后端接口地址
+            </p>
+          </div>
+
+          <div class="pt-1 text-right">
+            <button
+              type="submit"
+              class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+            >
+              保存
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
   </section>
 </template>
