@@ -34,6 +34,41 @@ python app.py
 
 后端默认监听 `0.0.0.0:5000`。
 
+## 本地调试说明（Windows 11）
+
+推荐使用 **PowerShell**，以下命令假设项目路径为 `D:\MyWebsite`（请按你的实际路径替换）。
+
+### 1）后端调试（Flask）
+
+在目录 `D:\MyWebsite\backend` 下执行：
+
+```powershell
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+python app.py
+```
+
+启动后端后，可在浏览器访问 `http://127.0.0.1:5000/api/programs` 验证接口。
+
+### 2）前端调试（Vue + Vite）
+
+新开一个 PowerShell 窗口，在目录 `D:\MyWebsite\frontend` 下执行：
+
+```powershell
+npm ci
+npm run dev
+```
+
+默认访问地址通常为 `http://127.0.0.1:5173`。
+
+### 3）联调与常见排查
+
+- 保证后端先启动，再启动前端
+- 若 PowerShell 不允许激活虚拟环境，可先执行：`Set-ExecutionPolicy -Scope Process RemoteSigned`
+- 若端口占用，请关闭占用进程或修改前后端启动端口
+- 前端请求后端时，统一使用 `/api` 前缀
+
 ## 部署说明（Nginx + Gunicorn）
 
 以下为 Linux 服务器典型部署方式：
