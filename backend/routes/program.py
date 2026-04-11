@@ -1,6 +1,7 @@
 from flask import Blueprint, jsonify, request
+from time import time
 
-from services.runner import add_fun_item, add_program, get_fun_items, get_program_by_id, get_programs
+from services.runner import add_fun_item, add_program, get_program_by_id, get_programs
 
 program_bp = Blueprint("program", __name__)
 
@@ -73,7 +74,7 @@ def create_program():
         return jsonify({"error": "validation_error", "message": error}), 400
 
     new_program = {
-        "id": f"custom-{len(get_programs()) + 1}",
+        "id": f"custom-{int(time() * 1000)}",
         "name": name,
         "summary": description,
         "stack": [item.strip() for item in tech_stack.replace("，", ",").split(",") if item.strip()],
@@ -103,7 +104,7 @@ def create_fun():
         return jsonify({"error": "validation_error", "message": error}), 400
 
     new_fun = {
-        "id": f"fun-{len(get_fun_items()) + 1}",
+        "id": f"fun-{int(time() * 1000)}",
         "name": name,
         "description": description,
         "api": api,

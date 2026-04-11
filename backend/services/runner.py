@@ -43,10 +43,6 @@ def add_program(program: dict):
     return program
 
 
-def get_fun_items():
-    return FUN_ITEMS
-
-
 def add_fun_item(fun_item: dict):
     FUN_ITEMS.insert(0, fun_item)
     return fun_item
