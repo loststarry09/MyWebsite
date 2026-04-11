@@ -99,7 +99,7 @@ python app.py
 
 ### 2) 启动前端（Vue + Vite）
 
-新开一个 PowerShell 窗口：
+新开一个 PowerShell 窗口（需要管理员权限）：
 
 ```powershell
 cd D:\MyWebsite\frontend
