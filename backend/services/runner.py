@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
 import shlex
 import subprocess
+from pathlib import Path
 
-PROGRAMS = [
+DEFAULT_PROGRAMS = [
     {
         "id": "focus-timer",
         "name": "专注计时器",
@@ -27,7 +29,43 @@ PROGRAMS = [
     },
 ]
 
-FUN_ITEMS = []
+DATA_FILE_PATH = Path(__file__).resolve().parents[1] / "data.json"
+
+
+def _default_programs():
+    return [dict(item) for item in DEFAULT_PROGRAMS]
+
+
+def _load_data():
+    if not DATA_FILE_PATH.exists():
+        return _default_programs(), []
+
+    try:
+        with DATA_FILE_PATH.open("r", encoding="utf-8") as data_file:
+            payload = json.load(data_file)
+    except (json.JSONDecodeError, OSError):
+        return _default_programs(), []
+
+    if not isinstance(payload, dict):
+        return _default_programs(), []
+
+    programs = payload.get("programs", [])
+    fun_items = payload.get("fun", [])
+    if not isinstance(programs, list) or not isinstance(fun_items, list):
+        return _default_programs(), []
+
+    normalized_programs = [item for item in programs if isinstance(item, dict)]
+    normalized_fun_items = [item for item in fun_items if isinstance(item, dict)]
+    return normalized_programs, normalized_fun_items
+
+
+PROGRAMS, FUN_ITEMS = _load_data()
+
+
+def _save_data():
+    payload = {"programs": PROGRAMS, "fun": FUN_ITEMS}
+    with DATA_FILE_PATH.open("w", encoding="utf-8") as data_file:
+        json.dump(payload, data_file, ensure_ascii=False, indent=2)
 
 
 def get_programs():
@@ -40,11 +78,13 @@ def get_program_by_id(program_id: str):
 
 def add_program(program: dict):
     PROGRAMS.insert(0, program)
+    _save_data()
     return program
 
 
 def add_fun_item(fun_item: dict):
     FUN_ITEMS.insert(0, fun_item)
+    _save_data()
     return fun_item
 
 
