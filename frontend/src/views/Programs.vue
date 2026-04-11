@@ -6,6 +6,7 @@ import { programs } from '../data/programs'
 
 const showAddModal = ref(false)
 const submitting = ref(false)
+const submitNotice = ref({ type: '', message: '' })
 const customPrograms = ref([])
 const apiPrograms = ref([])
 const hasLoadedPrograms = ref(false)
@@ -81,6 +82,7 @@ async function submitForm() {
   if (!canSubmit.value || submitting.value) return
 
   submitting.value = true
+  submitNotice.value = { type: '', message: '' }
   const payload = {
     name: form.value.name.trim(),
     description: form.value.description.trim(),
@@ -96,11 +98,11 @@ async function submitForm() {
     } catch {
       customPrograms.value.unshift(createProgramCard(payload))
     }
-    alert('项目添加成功')
+    submitNotice.value = { type: 'success', message: '项目添加成功' }
     closeModal()
   } catch (error) {
     const message = error?.response?.data?.message || '项目添加失败，请稍后重试'
-    alert(message)
+    submitNotice.value = { type: 'error', message }
   } finally {
     submitting.value = false
   }
@@ -165,6 +167,18 @@ onMounted(async () => {
         </RouterLink>
       </article>
     </div>
+
+    <p
+      v-if="submitNotice.message"
+      class="mt-4 rounded-lg border px-3 py-2 text-sm"
+      :class="
+        submitNotice.type === 'success'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-rose-200 bg-rose-50 text-rose-700'
+      "
+    >
+      {{ submitNotice.message }}
+    </p>
 
     <div
       v-if="showAddModal"

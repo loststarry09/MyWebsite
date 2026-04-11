@@ -17,6 +17,7 @@ const resultText = ref('')
 const showAddModal = ref(false)
 const touched = ref(false)
 const submitting = ref(false)
+const submitNotice = ref({ type: '', message: '' })
 const funItems = ref([])
 const hasLoadedFunItems = ref(false)
 const form = ref({
@@ -86,6 +87,7 @@ async function submitFun() {
   }
 
   submitting.value = true
+  submitNotice.value = { type: '', message: '' }
   const payload = {
     name: form.value.name.trim(),
     description: form.value.description.trim(),
@@ -99,11 +101,11 @@ async function submitFun() {
     } catch {
       funItems.value.unshift(createFunItem(payload))
     }
-    alert('娱乐项添加成功')
+    submitNotice.value = { type: 'success', message: '娱乐项添加成功' }
     closeModal()
   } catch (error) {
     const message = error?.response?.data?.message || '娱乐项添加失败，请稍后重试'
-    alert(message)
+    submitNotice.value = { type: 'error', message }
   } finally {
     submitting.value = false
   }
@@ -192,6 +194,18 @@ onMounted(async () => {
         </li>
       </ul>
     </article>
+
+    <p
+      v-if="submitNotice.message"
+      class="mt-4 rounded-lg border px-3 py-2 text-sm"
+      :class="
+        submitNotice.type === 'success'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+          : 'border-rose-200 bg-rose-50 text-rose-700'
+      "
+    >
+      {{ submitNotice.message }}
+    </p>
 
     <div
       v-if="showAddModal"
