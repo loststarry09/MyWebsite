@@ -256,7 +256,7 @@ onMounted(async () => {
             <label class="mb-1 block text-sm text-stone-700">后端接口地址</label>
             <input
               v-model="form.api"
-              placeholder="例如：http://127.0.0.1:5000/api/fun"
+              placeholder="例如：/api/fun"
               class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-stone-500"
             />
             <p v-if="touched && !form.api.trim()" class="mt-1 text-xs text-rose-500">
