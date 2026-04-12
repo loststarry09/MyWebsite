@@ -12,7 +12,6 @@ import NavCard from '../components/NavCard.vue'
           title="博客"
           subtitle="查看站内博客"
           to="/blog"
-          :animated="false"
         />
         <NavCard title="我的程序" subtitle="查看项目列表" to="/programs" />
         <NavCard title="娱乐" subtitle="轻松一下" to="/fun" />

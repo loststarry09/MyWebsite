@@ -49,7 +49,7 @@ onMounted(fetchBlogs)
 
 <template>
   <section
-    class="rounded-xl border border-stone-200 bg-[#F7F5F2] p-6 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-800"
+    class="rounded-xl border border-stone-200 bg-[#F7F5F2] p-6 shadow-sm dark:border-stone-700 dark:bg-stone-800"
   >
     <div class="flex items-center justify-between gap-3">
       <div>
