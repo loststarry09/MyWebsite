@@ -80,45 +80,45 @@ onMounted(fetchBlogForEdit)
 </script>
 
 <template>
-  <section class="rounded-lg border border-stone-200 bg-white p-6">
-    <h1 class="text-2xl font-semibold text-stone-800">
+  <section class="rounded-lg border border-stone-200 bg-white p-6 transition-colors duration-300 dark:border-stone-700 dark:bg-stone-800">
+    <h1 class="text-2xl font-semibold text-stone-800 transition-colors duration-300 dark:text-stone-100">
       {{ isEdit ? '编辑博客' : '新建博客' }}
     </h1>
 
-    <p v-if="loading" class="mt-4 text-sm text-stone-500">加载中...</p>
+    <p v-if="loading" class="mt-4 text-sm text-stone-500 transition-colors duration-300 dark:text-stone-400">加载中...</p>
     <p v-if="errorMessage" class="mt-4 text-sm text-rose-600">{{ errorMessage }}</p>
     <p v-if="successMessage" class="mt-4 text-sm text-emerald-600">{{ successMessage }}</p>
 
     <form v-if="!loading" class="mt-4 grid gap-4" @submit.prevent="submitForm">
-      <label class="grid gap-1 text-sm text-stone-700">
+      <label class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
         标题
         <input
           v-model="form.title"
           type="text"
-          class="rounded border border-stone-300 px-3 py-2 outline-none focus:border-stone-500"
+          class="rounded border border-stone-300 bg-white px-3 py-2 text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
           maxlength="120"
         />
       </label>
 
-      <label class="grid gap-1 text-sm text-stone-700">
+      <label class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
         标签（逗号分隔）
         <input
           v-model="form.tagsText"
           type="text"
-          class="rounded border border-stone-300 px-3 py-2 outline-none focus:border-stone-500"
+          class="rounded border border-stone-300 bg-white px-3 py-2 text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
         />
       </label>
 
-      <label class="grid gap-1 text-sm text-stone-700">
+      <label class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
         内容
         <textarea
           v-model="form.content"
           rows="8"
-          class="rounded border border-stone-300 px-3 py-2 outline-none focus:border-stone-500"
+          class="rounded border border-stone-300 bg-white px-3 py-2 text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
         />
       </label>
 
-      <label class="inline-flex items-center gap-2 text-sm text-stone-700">
+      <label class="inline-flex items-center gap-2 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
         <input v-model="form.isFavorite" type="checkbox" />
         设为收藏
       </label>
@@ -126,7 +126,7 @@ onMounted(fetchBlogForEdit)
       <div class="flex flex-wrap gap-3">
         <button
           type="submit"
-          class="rounded border border-stone-300 bg-stone-800 px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+          class="rounded border border-stone-300 bg-stone-800 px-4 py-2 text-sm font-medium text-white transition duration-300 disabled:opacity-60 dark:border-stone-600 dark:bg-stone-200 dark:text-stone-900 dark:hover:bg-stone-100"
           :disabled="submitLoading"
         >
           {{ submitLoading ? '提交中...' : isEdit ? '保存修改' : '创建博客' }}
@@ -135,7 +135,7 @@ onMounted(fetchBlogForEdit)
     </form>
 
     <div class="mt-6 flex flex-wrap gap-4 text-sm">
-      <RouterLink to="/blog" class="font-medium text-stone-700 underline-offset-2 hover:underline">
+      <RouterLink to="/blog" class="font-medium text-stone-700 underline-offset-2 transition-colors duration-300 hover:underline dark:text-stone-300">
         返回博客列表
       </RouterLink>
     </div>

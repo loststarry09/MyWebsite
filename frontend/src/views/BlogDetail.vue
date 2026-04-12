@@ -49,16 +49,16 @@ async function deleteBlog() {
 </script>
 
 <template>
-  <section class="rounded-lg border border-stone-200 bg-white p-6">
-    <p v-if="loading" class="text-sm text-stone-500">加载中...</p>
+  <section class="rounded-lg border border-stone-200 bg-white p-6 transition-colors duration-300 dark:border-stone-700 dark:bg-stone-800">
+    <p v-if="loading" class="text-sm text-stone-500 transition-colors duration-300 dark:text-stone-400">加载中...</p>
     <p v-else-if="loadError" class="text-sm text-rose-600">{{ loadError }}</p>
 
     <template v-else-if="blog">
       <div class="flex items-center justify-between gap-3">
-        <h1 class="text-2xl font-semibold text-stone-800">{{ blog.title }}</h1>
+        <h1 class="text-2xl font-semibold text-stone-800 transition-colors duration-300 dark:text-stone-100">{{ blog.title }}</h1>
         <span
           v-if="blog.isFavorite"
-          class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700"
+          class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700 transition-colors duration-300 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
         >
           收藏
         </span>
@@ -68,30 +68,30 @@ async function deleteBlog() {
         <li
           v-for="tag in blog.tags"
           :key="`${blog.id}-${tag}`"
-          class="rounded border border-stone-200 px-2 py-1 text-xs text-stone-500"
+          class="rounded border border-stone-200 px-2 py-1 text-xs text-stone-500 transition-colors duration-300 dark:border-stone-600 dark:text-stone-400"
         >
           #{{ tag }}
         </li>
       </ul>
 
-      <article class="mt-4 whitespace-pre-wrap text-sm leading-6 text-stone-700">{{ blog.content }}</article>
+      <article class="mt-4 whitespace-pre-wrap text-sm leading-6 text-stone-700 transition-colors duration-300 dark:text-stone-300">{{ blog.content }}</article>
 
-      <p class="mt-6 text-xs text-stone-500">
+      <p class="mt-6 text-xs text-stone-500 transition-colors duration-300 dark:text-stone-400">
         创建时间：{{ blog.createdAt || '-' }} ｜ 更新时间：{{ blog.updatedAt || '-' }}
       </p>
     </template>
 
     <div class="mt-6 flex flex-wrap gap-4">
-      <RouterLink
-        to="/blog"
-        class="inline-flex text-sm font-medium text-stone-700 underline-offset-2 hover:underline"
-      >
-        返回博客列表
-      </RouterLink>
+        <RouterLink
+          to="/blog"
+          class="inline-flex text-sm font-medium text-stone-700 underline-offset-2 transition-colors duration-300 hover:underline dark:text-stone-300"
+        >
+          返回博客列表
+        </RouterLink>
       <RouterLink
         v-if="blog?.id"
         :to="`/blog/edit/${blog.id}`"
-        class="inline-flex text-sm font-medium text-stone-700 underline-offset-2 hover:underline"
+        class="inline-flex text-sm font-medium text-stone-700 underline-offset-2 transition-colors duration-300 hover:underline dark:text-stone-300"
       >
         前往编辑页面
       </RouterLink>
