@@ -1,12 +1,27 @@
 <script setup>
+import axios from 'axios'
+import { onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import BlogListItem from '../components/BlogListItem.vue'
 
-const blogs = [
-  { id: 'mock-1', title: '前端路由阶段记录', tags: ['Vue', 'Router'], isFavorite: true },
-  { id: 'mock-2', title: '页面骨架与布局思路', tags: ['UI'], isFavorite: false },
-  { id: 'mock-3', title: '下一步联调计划', tags: ['计划', '开发'], isFavorite: false },
-]
+const blogs = ref([])
+const loading = ref(true)
+const loadError = ref('')
+
+async function fetchBlogs() {
+  loading.value = true
+  loadError.value = ''
+  try {
+    const { data } = await axios.get('/api/blogs')
+    blogs.value = Array.isArray(data) ? data : []
+  } catch (error) {
+    loadError.value = '博客列表加载失败，请稍后重试。'
+  } finally {
+    loading.value = false
+  }
+}
+
+onMounted(fetchBlogs)
 </script>
 
 <template>
@@ -20,11 +35,13 @@ const blogs = [
         to="/blog/new"
         class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
       >
-        新建博客（占位）
+        新建博客
       </RouterLink>
     </div>
 
-    <p v-if="!blogs.length" class="mt-6 text-sm text-stone-500">暂时还没有博客内容。</p>
+    <p v-if="loading" class="mt-6 text-sm text-stone-500">加载中...</p>
+    <p v-else-if="loadError" class="mt-6 text-sm text-rose-600">{{ loadError }}</p>
+    <p v-else-if="!blogs.length" class="mt-6 text-sm text-stone-500">暂时还没有博客内容。</p>
     <div v-else class="mt-6 grid gap-4">
       <BlogListItem
         v-for="blog in blogs"

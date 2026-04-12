@@ -1,12 +1,14 @@
 <script setup>
 import axios from 'axios'
 import { onMounted, ref } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
+const router = useRouter()
 const blog = ref(null)
 const loading = ref(true)
 const loadError = ref('')
+const deleting = ref(false)
 
 async function fetchBlog() {
   loading.value = true
@@ -27,6 +29,23 @@ async function fetchBlog() {
 }
 
 onMounted(fetchBlog)
+
+async function deleteBlog() {
+  if (!blog.value?.id || deleting.value) return
+  const confirmed = window.confirm('确认删除这篇博客吗？')
+  if (!confirmed) return
+
+  deleting.value = true
+  loadError.value = ''
+  try {
+    await axios.delete(`/api/blog/${blog.value.id}`)
+    await router.push('/blog')
+  } catch (error) {
+    loadError.value = '删除失败，请稍后重试。'
+  } finally {
+    deleting.value = false
+  }
+}
 </script>
 
 <template>
@@ -74,8 +93,16 @@ onMounted(fetchBlog)
         :to="`/blog/edit/${blog.id}`"
         class="inline-flex text-sm font-medium text-stone-700 underline-offset-2 hover:underline"
       >
-        前往编辑页面（占位）
+        前往编辑页面
       </RouterLink>
+      <button
+        v-if="blog?.id"
+        class="inline-flex text-sm font-medium text-rose-600 underline-offset-2 hover:underline disabled:opacity-60"
+        :disabled="deleting"
+        @click="deleteBlog"
+      >
+        {{ deleting ? '删除中...' : '删除博客' }}
+      </button>
     </div>
   </section>
 </template>
