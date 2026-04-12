@@ -27,7 +27,7 @@ const DEFAULT_THEME = 'system'
 const SYSTEM_THEME_QUERY = '(prefers-color-scheme: dark)'
 
 const currentTheme = ref(DEFAULT_THEME)
-let mediaQueryList
+let systemThemeMediaQuery
 
 const getStoredTheme = () => {
   const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
@@ -74,11 +74,11 @@ onMounted(() => {
   currentTheme.value = getStoredTheme()
   applyTheme(currentTheme.value)
 
-  mediaQueryList = window.matchMedia(SYSTEM_THEME_QUERY)
-  mediaQueryList.addEventListener('change', handleSystemThemeChange)
+  systemThemeMediaQuery = window.matchMedia(SYSTEM_THEME_QUERY)
+  systemThemeMediaQuery.addEventListener('change', handleSystemThemeChange)
 })
 
 onBeforeUnmount(() => {
-  mediaQueryList?.removeEventListener('change', handleSystemThemeChange)
+  systemThemeMediaQuery?.removeEventListener('change', handleSystemThemeChange)
 })
 </script>
