@@ -10,6 +10,14 @@ const loading = ref(true)
 const loadError = ref('')
 const deleting = ref(false)
 
+function formatTime(timeStr) {
+  if (!timeStr) return '-'
+  return timeStr
+    .replace('T', ' ')
+    .replace(/\.\d+Z?$/, '')
+    .replace(/Z$/, '')
+}
+
 async function fetchBlog() {
   loading.value = true
   loadError.value = ''
@@ -78,8 +86,9 @@ async function deleteBlog() {
 
       <article class="mt-4 whitespace-pre-wrap text-sm leading-6 text-stone-700 transition-colors duration-300 dark:text-stone-300">{{ blog.content }}</article>
 
-      <p class="mt-6 text-xs text-stone-500 transition-colors duration-300 dark:text-stone-400">
-        创建时间：{{ blog.createdAt || '-' }} ｜ 更新时间：{{ blog.updatedAt || '-' }}
+      <p class="mt-6 text-sm text-gray-500 transition-colors duration-300 dark:text-gray-400">
+        📅 创建：{{ formatTime(blog.createdAt) }}<br>
+        🔄 更新：{{ formatTime(blog.updatedAt) }}
       </p>
     </template>
 
