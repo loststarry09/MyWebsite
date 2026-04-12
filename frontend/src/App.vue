@@ -5,6 +5,12 @@
       <RouterLink to="/blog" class="hover:underline">博客</RouterLink>
       <RouterLink to="/programs" class="hover:underline">我的程序</RouterLink>
       <RouterLink to="/fun" class="hover:underline">娱乐</RouterLink>
+      <ThemeToggle
+        :theme="currentTheme"
+        :theme-storage-key="THEME_STORAGE_KEY"
+        :apply-theme="applyTheme"
+        @theme-change="handleThemeChange"
+      />
     </header>
     <main class="mx-auto max-w-4xl px-6 pb-10">
       <RouterView />
@@ -13,13 +19,14 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import ThemeToggle from './components/ThemeToggle.vue'
 
 const THEME_STORAGE_KEY = 'theme'
 const DEFAULT_THEME = 'system'
 const SYSTEM_THEME_QUERY = '(prefers-color-scheme: dark)'
 
-let currentTheme = DEFAULT_THEME
+const currentTheme = ref(DEFAULT_THEME)
 let mediaQueryList
 
 const getStoredTheme = () => {
@@ -54,14 +61,18 @@ const applyTheme = (theme) => {
 }
 
 const handleSystemThemeChange = () => {
-  if (currentTheme === 'system') {
+  if (currentTheme.value === 'system') {
     applyTheme('system')
   }
 }
 
+const handleThemeChange = (theme) => {
+  currentTheme.value = theme
+}
+
 onMounted(() => {
-  currentTheme = getStoredTheme()
-  applyTheme(currentTheme)
+  currentTheme.value = getStoredTheme()
+  applyTheme(currentTheme.value)
 
   mediaQueryList = window.matchMedia(SYSTEM_THEME_QUERY)
   mediaQueryList.addEventListener('change', handleSystemThemeChange)
