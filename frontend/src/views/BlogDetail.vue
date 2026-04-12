@@ -62,8 +62,20 @@ onMounted(fetchBlog)
       </p>
     </template>
 
-    <RouterLink to="/blog" class="mt-6 inline-flex text-sm font-medium text-stone-700 underline-offset-2 hover:underline">
-      返回博客列表
-    </RouterLink>
+    <div class="mt-6 flex flex-wrap gap-4">
+      <RouterLink
+        to="/blog"
+        class="inline-flex text-sm font-medium text-stone-700 underline-offset-2 hover:underline"
+      >
+        返回博客列表
+      </RouterLink>
+      <RouterLink
+        v-if="blog?.id"
+        :to="`/blog/edit/${blog.id}`"
+        class="inline-flex text-sm font-medium text-stone-700 underline-offset-2 hover:underline"
+      >
+        前往编辑页面（占位）
+      </RouterLink>
+    </div>
   </section>
 </template>
