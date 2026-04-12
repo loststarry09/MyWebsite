@@ -48,7 +48,9 @@ onMounted(fetchBlogs)
 </script>
 
 <template>
-  <section class="rounded-xl border border-stone-200 bg-[#F7F5F2] p-6 shadow-sm transition-colors duration-300 hover:shadow-md dark:border-stone-700 dark:bg-stone-800">
+  <section
+    class="rounded-xl border border-stone-200 bg-[#F7F5F2] p-6 shadow-sm transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 hover:shadow-md dark:border-stone-700 dark:bg-stone-800"
+  >
     <div class="flex items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-semibold text-stone-800 transition-colors duration-300 dark:text-stone-100">博客</h1>
