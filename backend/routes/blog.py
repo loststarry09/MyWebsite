@@ -110,7 +110,7 @@ def update_blog(blog_id: str):
     if "isFavorite" in payload:
         current_blog["isFavorite"] = bool(payload["isFavorite"])
 
-    current_blog["updatedAt"] = payload["updatedAt"] if isinstance(payload.get("updatedAt"), str) else _now_iso()
+    current_blog["updatedAt"] = _now_iso()
 
     BLOGS[blog_index] = current_blog
     return jsonify(current_blog)
