@@ -121,15 +121,15 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="rounded-xl border border-stone-200 bg-[#F7F5F2] p-6 shadow-sm transition hover:shadow-md">
+  <section class="rounded-xl border border-stone-200 bg-[#F7F5F2] p-6 shadow-sm transition duration-300 transition-colors hover:shadow-md dark:border-stone-700 dark:bg-stone-800">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-semibold text-stone-800">娱乐</h1>
-        <p class="mt-2 text-sm text-stone-500">轻松一下：随机一句话 + 猜骰子小游戏。</p>
+        <h1 class="text-2xl font-semibold text-stone-800 transition-colors duration-300 dark:text-stone-100">娱乐</h1>
+        <p class="mt-2 text-sm text-stone-500 transition-colors duration-300 dark:text-stone-400">轻松一下：随机一句话 + 猜骰子小游戏。</p>
       </div>
       <button
         type="button"
-        class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+        class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-600 dark:bg-stone-700 dark:text-stone-200 dark:hover:bg-stone-600"
         @click="showAddModal = true"
       >
         + 添加娱乐
@@ -137,46 +137,46 @@ onMounted(async () => {
     </div>
 
     <div class="mt-6 grid gap-4 md:grid-cols-2">
-      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow">
-        <h2 class="text-sm font-medium text-stone-700">今日随机一句</h2>
-        <p class="mt-3 min-h-12 text-sm text-stone-600">{{ currentQuote }}</p>
+      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900">
+        <h2 class="text-sm font-medium text-stone-700 transition-colors duration-300 dark:text-stone-200">今日随机一句</h2>
+        <p class="mt-3 min-h-12 text-sm text-stone-600 transition-colors duration-300 dark:text-stone-300">{{ currentQuote }}</p>
         <button
           type="button"
-          class="mt-3 rounded border border-stone-300 px-3 py-1 text-sm text-stone-700 hover:bg-stone-50"
+          class="mt-3 rounded border border-stone-300 px-3 py-1 text-sm text-stone-700 transition-colors duration-300 hover:bg-stone-50 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-700"
           @click="nextQuote"
         >
           换一句
         </button>
       </article>
 
-      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow">
-        <h2 class="text-sm font-medium text-stone-700">猜骰子</h2>
+      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900">
+        <h2 class="text-sm font-medium text-stone-700 transition-colors duration-300 dark:text-stone-200">猜骰子</h2>
         <div class="mt-3 flex items-center gap-2">
-          <label for="guess-input" class="text-sm text-stone-600">猜 1~6：</label>
+          <label for="guess-input" class="text-sm text-stone-600 transition-colors duration-300 dark:text-stone-300">猜 1~6：</label>
           <input
             id="guess-input"
             v-model="guess"
             inputmode="numeric"
             placeholder="例如 3"
-            class="w-24 rounded border border-stone-300 px-2 py-1 text-sm outline-none focus:border-stone-500"
+            class="w-24 rounded border border-stone-300 bg-white px-2 py-1 text-sm text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-800 dark:text-stone-100 dark:focus:border-stone-400"
           />
           <button
             type="button"
-            class="rounded border border-stone-300 px-3 py-1 text-sm text-stone-700 hover:bg-stone-50"
+            class="rounded border border-stone-300 px-3 py-1 text-sm text-stone-700 transition-colors duration-300 hover:bg-stone-50 dark:border-stone-600 dark:text-stone-200 dark:hover:bg-stone-700"
             @click="rollDice"
           >
             掷骰子
           </button>
         </div>
-        <p class="mt-3 text-sm text-stone-600">{{ resultText || '输入数字后开始。' }}</p>
+        <p class="mt-3 text-sm text-stone-600 transition-colors duration-300 dark:text-stone-300">{{ resultText || '输入数字后开始。' }}</p>
       </article>
     </div>
 
     <article
-      class="mt-6 rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+      class="mt-6 rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900"
     >
-      <h2 class="text-sm font-medium text-stone-700">我添加的娱乐项</h2>
-      <p v-if="!funItems.length" class="mt-2 text-sm text-stone-500">
+      <h2 class="text-sm font-medium text-stone-700 transition-colors duration-300 dark:text-stone-200">我添加的娱乐项</h2>
+      <p v-if="!funItems.length" class="mt-2 text-sm text-stone-500 transition-colors duration-300 dark:text-stone-400">
         {{ hasLoadedFunItems ? '后端暂无数据。' : '暂未添加，点击右上角按钮开始。' }}
       </p>
 
@@ -184,12 +184,12 @@ onMounted(async () => {
         <li
           v-for="item in funItems"
           :key="item.id"
-          class="rounded-lg border border-stone-200 bg-[#F7F5F2] p-3"
+          class="rounded-lg border border-stone-200 bg-[#F7F5F2] p-3 transition-colors duration-300 dark:border-stone-700 dark:bg-stone-800"
         >
-          <p class="text-sm font-medium text-stone-800">{{ item.name }}</p>
-          <p class="mt-1 text-sm text-stone-600">{{ item.description }}</p>
-          <p class="mt-2 text-xs text-stone-500">
-            接口：<span class="break-all text-stone-700">{{ item.api }}</span>
+          <p class="text-sm font-medium text-stone-800 transition-colors duration-300 dark:text-stone-100">{{ item.name }}</p>
+          <p class="mt-1 text-sm text-stone-600 transition-colors duration-300 dark:text-stone-300">{{ item.description }}</p>
+          <p class="mt-2 text-xs text-stone-500 transition-colors duration-300 dark:text-stone-400">
+            接口：<span class="break-all text-stone-700 transition-colors duration-300 dark:text-stone-200">{{ item.api }}</span>
           </p>
         </li>
       </ul>
@@ -197,11 +197,11 @@ onMounted(async () => {
 
     <p
       v-if="submitNotice.message"
-      class="mt-4 rounded-lg border px-3 py-2 text-sm"
+      class="mt-4 rounded-lg border px-3 py-2 text-sm transition-colors duration-300"
       :class="
         submitNotice.type === 'success'
-          ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-          : 'border-rose-200 bg-rose-50 text-rose-700'
+          ? 'border-emerald-200 bg-emerald-50 text-emerald-700 dark:border-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+          : 'border-rose-200 bg-rose-50 text-rose-700 dark:border-rose-700 dark:bg-rose-950/40 dark:text-rose-300'
       "
     >
       {{ submitNotice.message }}
@@ -209,15 +209,15 @@ onMounted(async () => {
 
     <div
       v-if="showAddModal"
-      class="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/35 p-4"
+      class="fixed inset-0 z-50 flex items-center justify-center bg-stone-900/35 p-4 transition-colors duration-300"
       @click.self="closeModal"
     >
-      <div class="w-full max-w-lg rounded-xl border border-stone-200 bg-[#F7F5F2] p-5 shadow-xl">
+      <div class="w-full max-w-lg rounded-xl border border-stone-200 bg-[#F7F5F2] p-5 shadow-xl transition-colors duration-300 dark:border-stone-700 dark:bg-stone-800">
         <div class="flex items-center justify-between">
-          <h2 class="text-lg font-semibold text-stone-800">添加娱乐</h2>
+          <h2 class="text-lg font-semibold text-stone-800 transition-colors duration-300 dark:text-stone-100">添加娱乐</h2>
           <button
             type="button"
-            class="rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 hover:bg-stone-100"
+            class="rounded border border-stone-300 px-2 py-1 text-xs text-stone-600 transition-colors duration-300 hover:bg-stone-100 dark:border-stone-600 dark:text-stone-300 dark:hover:bg-stone-700"
             @click="closeModal"
           >
             关闭
@@ -226,11 +226,11 @@ onMounted(async () => {
 
         <form class="mt-4 space-y-3" @submit.prevent="submitFun">
           <div>
-            <label class="mb-1 block text-sm text-stone-700">娱乐名称（30字以内）</label>
+            <label class="mb-1 block text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">娱乐名称（30字以内）</label>
             <input
               v-model="form.name"
               maxlength="30"
-              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-stone-500"
+              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
             />
             <p v-if="touched && !form.name.trim()" class="mt-1 text-xs text-rose-500">请输入娱乐名称</p>
             <p v-else-if="form.name.length > 30" class="mt-1 text-xs text-rose-500">
@@ -239,12 +239,12 @@ onMounted(async () => {
           </div>
 
           <div>
-            <label class="mb-1 block text-sm text-stone-700">描述（100字以内）</label>
+            <label class="mb-1 block text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">描述（100字以内）</label>
             <textarea
               v-model="form.description"
               maxlength="100"
               rows="3"
-              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-stone-500"
+              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
             />
             <p v-if="touched && !form.description.trim()" class="mt-1 text-xs text-rose-500">请输入描述</p>
             <p v-else-if="form.description.length > 100" class="mt-1 text-xs text-rose-500">
@@ -253,11 +253,11 @@ onMounted(async () => {
           </div>
 
           <div>
-            <label class="mb-1 block text-sm text-stone-700">后端接口地址</label>
+            <label class="mb-1 block text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">后端接口地址</label>
             <input
               v-model="form.api"
               placeholder="例如：/api/fun"
-              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-stone-500"
+              class="w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
             />
             <p v-if="touched && !form.api.trim()" class="mt-1 text-xs text-rose-500">
               请输入后端接口地址
@@ -268,7 +268,7 @@ onMounted(async () => {
             <button
               type="submit"
               :disabled="submitting"
-              class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition hover:-translate-y-0.5 hover:shadow"
+              class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-600 dark:bg-stone-700 dark:text-stone-200 dark:hover:bg-stone-600"
             >
               {{ submitting ? '提交中...' : '保存' }}
             </button>
