@@ -8,7 +8,8 @@ defineProps({
 </script>
 
 <template>
-  <article
+  <RouterLink
+    :to="`/blog/${blog.id}`"
     class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900"
   >
     <div class="flex items-center justify-between gap-3">
@@ -31,11 +32,10 @@ defineProps({
       </li>
     </ul>
 
-    <RouterLink
-      :to="`/blog/${blog.id}`"
+    <span
       class="mt-4 inline-flex text-sm font-medium text-stone-700 underline-offset-2 transition-colors duration-300 hover:underline dark:text-stone-300"
     >
       查看详情
-    </RouterLink>
-  </article>
+    </span>
+  </RouterLink>
 </template>
