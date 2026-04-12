@@ -78,6 +78,23 @@ def list_blogs():
     return jsonify(BLOGS)
 
 
+@blog_bp.get("/blog/")
+def get_blog_by_query():
+    blog_id = request.args.get("id", "").strip()
+    if not blog_id:
+        return jsonify(
+            {
+                "error": "missing_blog_id",
+                "message": "请通过查询参数 id 提供博客 ID，例如 /api/blog/?id=welcome-blog",
+            }
+        ), 400
+
+    blog_index = _get_blog_index(blog_id)
+    if blog_index is None:
+        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+    return jsonify(BLOGS[blog_index])
+
+
 @blog_bp.get("/blog/<blog_id>")
 def get_blog(blog_id: str):
     blog_index = _get_blog_index(blog_id)

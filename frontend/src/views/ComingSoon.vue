@@ -36,14 +36,12 @@ import { RouterLink } from 'vue-router'
           >
             去娱乐页面
           </RouterLink>
-          <a
-            href="https://example.com"
-            target="_blank"
-            rel="noopener noreferrer"
+          <RouterLink
+            to="/blog"
             class="rounded border border-stone-300 px-3 py-1 text-sm text-stone-700 hover:bg-stone-50"
           >
-            外部博客
-          </a>
+            站内博客
+          </RouterLink>
         </div>
       </article>
     </div>
