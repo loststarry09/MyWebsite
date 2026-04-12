@@ -1,5 +1,5 @@
 <template>
-  <div class="min-h-screen bg-[#F7F5F2] text-gray-800">
+  <div class="min-h-screen bg-[#F7F5F2] text-gray-800 dark:bg-gray-900 dark:text-gray-100">
     <header class="mx-auto flex max-w-4xl gap-4 px-6 py-6 text-sm">
       <RouterLink to="/" class="hover:underline">首页</RouterLink>
       <RouterLink to="/blog" class="hover:underline">博客</RouterLink>
