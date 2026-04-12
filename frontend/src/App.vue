@@ -13,10 +13,14 @@
 </template>
 
 <script setup>
-import { onMounted } from 'vue'
+import { onBeforeUnmount, onMounted } from 'vue'
 
 const THEME_STORAGE_KEY = 'theme'
 const DEFAULT_THEME = 'system'
+const SYSTEM_THEME_QUERY = '(prefers-color-scheme: dark)'
+
+let currentTheme = DEFAULT_THEME
+let mediaQueryList
 
 const getStoredTheme = () => {
   const storedTheme = localStorage.getItem(THEME_STORAGE_KEY)
@@ -30,7 +34,7 @@ const getStoredTheme = () => {
 
 const applyTheme = (theme) => {
   const root = document.documentElement
-  const isSystemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const isSystemDark = window.matchMedia(SYSTEM_THEME_QUERY).matches
 
   if (theme === 'dark') {
     root.classList.add('dark')
@@ -49,8 +53,21 @@ const applyTheme = (theme) => {
   }
 }
 
+const handleSystemThemeChange = () => {
+  if (currentTheme === 'system') {
+    applyTheme('system')
+  }
+}
+
 onMounted(() => {
-  const theme = getStoredTheme()
-  applyTheme(theme)
+  currentTheme = getStoredTheme()
+  applyTheme(currentTheme)
+
+  mediaQueryList = window.matchMedia(SYSTEM_THEME_QUERY)
+  mediaQueryList.addEventListener('change', handleSystemThemeChange)
+})
+
+onBeforeUnmount(() => {
+  mediaQueryList?.removeEventListener('change', handleSystemThemeChange)
 })
 </script>
