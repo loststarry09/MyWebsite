@@ -3,6 +3,7 @@ import os
 from flask import Flask
 from werkzeug.middleware.proxy_fix import ProxyFix
 
+from routes.blog import blog_bp
 from routes.program import program_bp
 
 
@@ -11,6 +12,7 @@ def create_app() -> Flask:
     app.config["JSON_AS_ASCII"] = False
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)  # type: ignore[assignment]
     app.register_blueprint(program_bp, url_prefix="/api")
+    app.register_blueprint(blog_bp, url_prefix="/api")
     return app
 
 

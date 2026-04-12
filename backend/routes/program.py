@@ -4,8 +4,6 @@ from flask import Blueprint, jsonify, request
 from services.runner import (
     add_fun_item,
     add_program,
-    get_blog_by_id,
-    get_blogs,
     get_fun_items,
     get_program_by_id,
     get_programs,
@@ -124,15 +122,3 @@ def create_fun():
 def list_fun():
     return jsonify(get_fun_items())
 
-
-@program_bp.get("/blogs")
-def list_blogs():
-    return jsonify(get_blogs())
-
-
-@program_bp.get("/blog/<blog_id>")
-def get_blog(blog_id: str):
-    blog = get_blog_by_id(blog_id)
-    if not blog:
-        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
-    return jsonify(blog)
