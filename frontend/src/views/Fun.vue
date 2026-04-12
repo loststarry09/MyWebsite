@@ -121,7 +121,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="rounded-xl border border-stone-200 bg-[#F7F5F2] p-6 shadow-sm transition duration-300 transition-colors hover:shadow-md dark:border-stone-700 dark:bg-stone-800">
+  <section class="rounded-xl border border-stone-200 bg-[#F7F5F2] p-6 shadow-sm transition-all duration-300 hover:shadow-md dark:border-stone-700 dark:bg-stone-800">
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
         <h1 class="text-2xl font-semibold text-stone-800 transition-colors duration-300 dark:text-stone-100">娱乐</h1>
@@ -129,7 +129,7 @@ onMounted(async () => {
       </div>
       <button
         type="button"
-        class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-600 dark:bg-stone-700 dark:text-stone-200 dark:hover:bg-stone-600"
+        class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-600 dark:bg-stone-700 dark:text-stone-200 dark:hover:bg-stone-600"
         @click="showAddModal = true"
       >
         + 添加娱乐
@@ -137,7 +137,7 @@ onMounted(async () => {
     </div>
 
     <div class="mt-6 grid gap-4 md:grid-cols-2">
-      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900">
+      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900">
         <h2 class="text-sm font-medium text-stone-700 transition-colors duration-300 dark:text-stone-200">今日随机一句</h2>
         <p class="mt-3 min-h-12 text-sm text-stone-600 transition-colors duration-300 dark:text-stone-300">{{ currentQuote }}</p>
         <button
@@ -149,7 +149,7 @@ onMounted(async () => {
         </button>
       </article>
 
-      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900">
+      <article class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900">
         <h2 class="text-sm font-medium text-stone-700 transition-colors duration-300 dark:text-stone-200">猜骰子</h2>
         <div class="mt-3 flex items-center gap-2">
           <label for="guess-input" class="text-sm text-stone-600 transition-colors duration-300 dark:text-stone-300">猜 1~6：</label>
@@ -173,7 +173,7 @@ onMounted(async () => {
     </div>
 
     <article
-      class="mt-6 rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900"
+      class="mt-6 rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900"
     >
       <h2 class="text-sm font-medium text-stone-700 transition-colors duration-300 dark:text-stone-200">我添加的娱乐项</h2>
       <p v-if="!funItems.length" class="mt-2 text-sm text-stone-500 transition-colors duration-300 dark:text-stone-400">
@@ -268,7 +268,7 @@ onMounted(async () => {
             <button
               type="submit"
               :disabled="submitting"
-              class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition duration-300 transition-colors hover:-translate-y-0.5 hover:shadow dark:border-stone-600 dark:bg-stone-700 dark:text-stone-200 dark:hover:bg-stone-600"
+              class="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 shadow-sm transition-all duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-600 dark:bg-stone-700 dark:text-stone-200 dark:hover:bg-stone-600"
             >
               {{ submitting ? '提交中...' : '保存' }}
             </button>
