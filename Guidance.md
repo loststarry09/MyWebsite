@@ -1,6 +1,7 @@
 # 源码结构与修改指南（中级开发者版）
 
 > 目标：拿到项目后，10 分钟内能定位并改动核心功能。
+> 本文档示例统一以项目目录名 `MyWebsiteV1` 为准。
 
 ## 一、文档目标
 
@@ -95,7 +96,7 @@
 
 ### 1）修改博客跳转 URL
 
-- 文件路径：`/home/runner/work/MyWebsite/MyWebsite/frontend/src/views/Home.vue`
+- 文件路径：`/path/to/MyWebsiteV1/frontend/src/views/Home.vue`
 - 修改位置：博客卡片 `href`
 
 ```vue
@@ -120,7 +121,7 @@
 
 ### 2）修改首页按钮内容或跳转路径
 
-- 文件路径：`/home/runner/work/MyWebsite/MyWebsite/frontend/src/views/Home.vue`
+- 文件路径：`/path/to/MyWebsiteV1/frontend/src/views/Home.vue`
 - 修改位置：任意 `NavCard` 的 `title/subtitle/to`
 
 ```vue
@@ -146,8 +147,8 @@
 ### 3）修改 API 基础地址（localhost → 服务器）
 
 - 文件路径（当前实际调用点）：
-  - `/home/runner/work/MyWebsite/MyWebsite/frontend/src/views/Programs.vue`
-  - `/home/runner/work/MyWebsite/MyWebsite/frontend/src/views/Fun.vue`
+  - `/path/to/MyWebsiteV1/frontend/src/views/Programs.vue`
+  - `/path/to/MyWebsiteV1/frontend/src/views/Fun.vue`
 - 修改位置：`axios.get/axios.post` 的 URL 参数
 
 ```js
@@ -178,7 +179,7 @@ await axios.post('https://api.your-domain.com/api/fun', payload)
 
 #### 方式 A：前端写死
 
-- 文件路径：`/home/runner/work/MyWebsite/MyWebsite/frontend/src/data/programs.js`
+- 文件路径：`/path/to/MyWebsiteV1/frontend/src/data/programs.js`
 - 修改位置：`programs` 数组新增对象
 
 ```js
@@ -223,9 +224,9 @@ export const programs = [
 #### 方式 B：后端接口返回
 
 - 文件路径：
-  - 接口定义：`/home/runner/work/MyWebsite/MyWebsite/backend/routes/program.py`
-  - 数据逻辑：`/home/runner/work/MyWebsite/MyWebsite/backend/services/runner.py`
-  - 数据落盘：`/home/runner/work/MyWebsite/MyWebsite/backend/data.json`
+  - 接口定义：`/path/to/MyWebsiteV1/backend/routes/program.py`
+  - 数据逻辑：`/path/to/MyWebsiteV1/backend/services/runner.py`
+  - 数据落盘：`/path/to/MyWebsiteV1/backend/data.json`
 - 修改位置：调用现有 `POST /api/program`，或直接写入 `data.json` 的 `programs` 数组
 
 ```json
@@ -264,8 +265,8 @@ export const programs = [
 ### 5）修改页面样式（颜色/布局）
 
 - 文件路径：
-  - 页面局部样式类：`/home/runner/work/MyWebsite/MyWebsite/frontend/src/views/*.vue`
-  - 全局基础样式：`/home/runner/work/MyWebsite/MyWebsite/frontend/src/style.css`
+  - 页面局部样式类：`/path/to/MyWebsiteV1/frontend/src/views/*.vue`
+  - 全局基础样式：`/path/to/MyWebsiteV1/frontend/src/style.css`
 - 修改位置：Tailwind 类名 / 全局 CSS
 
 ```vue
@@ -313,15 +314,15 @@ body {
 ## 前端
 
 - 开发：  
-  `cd /home/runner/work/MyWebsite/MyWebsite/frontend && npm run dev`
+  `cd /path/to/MyWebsiteV1/frontend && npm run dev`
 - 修改后：Vite 自动热更新
 - 构建：  
-  `cd /home/runner/work/MyWebsite/MyWebsite/frontend && npm run build`
+  `cd /path/to/MyWebsiteV1/frontend && npm run build`
 
 ## 后端
 
 - 启动：  
-  `cd /home/runner/work/MyWebsite/MyWebsite/backend && python app.py`
+  `cd /path/to/MyWebsiteV1/backend && python app.py`
 - 修改后：**当前启动方式下通常需要手动重启**（未配置热重载）
 
 ---
