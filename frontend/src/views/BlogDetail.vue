@@ -58,7 +58,7 @@ async function deleteBlog() {
 
 <template>
   <section
-    class="rounded-lg border border-stone-200 bg-white p-6 shadow-sm transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 hover:shadow-md dark:border-stone-700 dark:bg-stone-800"
+    class="rounded-lg border border-stone-200 bg-white p-6 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-800"
   >
     <p v-if="loading" class="text-sm text-stone-500 transition-colors duration-300 dark:text-stone-400">加载中...</p>
     <p v-else-if="loadError" class="text-sm text-rose-600">{{ loadError }}</p>

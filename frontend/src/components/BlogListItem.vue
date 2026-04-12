@@ -9,7 +9,7 @@ defineProps({
 
 <template>
   <article
-    class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition-all duration-300 transform hover:-translate-y-1 hover:scale-105 hover:shadow dark:border-stone-700 dark:bg-stone-900"
+    class="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-700 dark:bg-stone-900"
   >
     <div class="flex items-center justify-between gap-3">
       <h2 class="text-base font-medium text-stone-800 transition-colors duration-300 dark:text-stone-100">{{ blog.title }}</h2>
