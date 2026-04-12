@@ -1,30 +1,57 @@
 from datetime import datetime, timezone
+import json
+from pathlib import Path
 from time import time
 
 from flask import Blueprint, jsonify, request
 
 blog_bp = Blueprint("blog", __name__)
 
-BLOGS = [
-    {
-        "id": "welcome-blog",
-        "title": "欢迎来到站内博客",
-        "content": "这是博客示例数据，后续可以通过 API 增删改查。",
-        "tags": ["公告", "示例"],
-        "isFavorite": True,
-        "createdAt": "2026-04-12T00:00:00Z",
-        "updatedAt": "2026-04-12T00:00:00Z",
-    },
-    {
-        "id": "phase4-note",
-        "title": "阶段4后端接口完成说明",
-        "content": "本篇用于演示 Flask 博客 CRUD 接口的数据结构。",
-        "tags": ["Flask", "API"],
-        "isFavorite": False,
-        "createdAt": "2026-04-12T00:00:00Z",
-        "updatedAt": "2026-04-12T00:00:00Z",
-    },
-]
+BLOGS_FILE = Path(__file__).resolve().parent.parent / "blogs.json"
+
+
+def _default_blogs():
+    return [
+        {
+            "id": "welcome-blog",
+            "title": "欢迎来到站内博客",
+            "content": "这是博客示例数据，后续可以通过 API 增删改查。",
+            "tags": ["公告", "示例"],
+            "isFavorite": True,
+            "createdAt": "2026-04-12T00:00:00Z",
+            "updatedAt": "2026-04-12T00:00:00Z",
+        },
+        {
+            "id": "phase4-note",
+            "title": "阶段4后端接口完成说明",
+            "content": "本篇用于演示 Flask 博客 CRUD 接口的数据结构。",
+            "tags": ["Flask", "API"],
+            "isFavorite": False,
+            "createdAt": "2026-04-12T00:00:00Z",
+            "updatedAt": "2026-04-12T00:00:00Z",
+        },
+    ]
+
+
+def _save_blogs():
+    BLOGS_FILE.write_text(json.dumps(BLOGS, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _load_blogs():
+    if not BLOGS_FILE.exists():
+        return _default_blogs()
+
+    try:
+        data = json.loads(BLOGS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return _default_blogs()
+
+    return data if isinstance(data, list) else _default_blogs()
+
+
+BLOGS = _load_blogs()
+if not BLOGS_FILE.exists():
+    _save_blogs()
 
 
 def _get_blog_index(blog_id: str):
@@ -81,6 +108,11 @@ def create_blog():
         "updatedAt": payload.get("updatedAt") if isinstance(payload.get("updatedAt"), str) else timestamp,
     }
     BLOGS.insert(0, blog)
+    try:
+        _save_blogs()
+    except OSError:
+        BLOGS.pop(0)
+        return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
     return jsonify(blog), 201
 
 
@@ -113,6 +145,10 @@ def update_blog(blog_id: str):
     current_blog["updatedAt"] = _now_iso()
 
     BLOGS[blog_index] = current_blog
+    try:
+        _save_blogs()
+    except OSError:
+        return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
     return jsonify(current_blog)
 
 
@@ -123,4 +159,9 @@ def delete_blog(blog_id: str):
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
     deleted = BLOGS.pop(blog_index)
+    try:
+        _save_blogs()
+    except OSError:
+        BLOGS.insert(blog_index, deleted)
+        return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
     return jsonify({"deleted": True, "blog": deleted})
