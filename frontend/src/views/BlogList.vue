@@ -1,12 +1,35 @@
 <script setup>
 import axios from 'axios'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import BlogListItem from '../components/BlogListItem.vue'
 
 const blogs = ref([])
 const loading = ref(true)
 const loadError = ref('')
+const selectedTag = ref('')
+const favoritesOnly = ref(false)
+
+const allTags = computed(() => {
+  const tagSet = new Set()
+  blogs.value.forEach((blog) => {
+    if (Array.isArray(blog.tags)) {
+      blog.tags.forEach((tag) => {
+        if (tag) tagSet.add(tag)
+      })
+    }
+  })
+  return [...tagSet]
+})
+
+const filteredBlogs = computed(() =>
+  blogs.value.filter((blog) => {
+    const matchFavorite = !favoritesOnly.value || Boolean(blog.isFavorite)
+    const matchTag =
+      !selectedTag.value || (Array.isArray(blog.tags) && blog.tags.includes(selectedTag.value))
+    return matchFavorite && matchTag
+  })
+)
 
 async function fetchBlogs() {
   loading.value = true
@@ -39,12 +62,30 @@ onMounted(fetchBlogs)
       </RouterLink>
     </div>
 
+    <div class="mt-4 flex flex-wrap items-center gap-4 text-sm text-stone-600">
+      <label class="flex items-center gap-2">
+        标签筛选
+        <select
+          v-model="selectedTag"
+          class="rounded border border-stone-300 bg-white px-2 py-1 text-sm text-stone-700"
+        >
+          <option value="">全部</option>
+          <option v-for="tag in allTags" :key="tag" :value="tag">{{ tag }}</option>
+        </select>
+      </label>
+
+      <label class="inline-flex items-center gap-2">
+        <input v-model="favoritesOnly" type="checkbox" />
+        只看收藏
+      </label>
+    </div>
+
     <p v-if="loading" class="mt-6 text-sm text-stone-500">加载中...</p>
     <p v-else-if="loadError" class="mt-6 text-sm text-rose-600">{{ loadError }}</p>
-    <p v-else-if="!blogs.length" class="mt-6 text-sm text-stone-500">暂时还没有博客内容。</p>
+    <p v-else-if="!filteredBlogs.length" class="mt-6 text-sm text-stone-500">没有符合条件的博客。</p>
     <div v-else class="mt-6 grid gap-4">
       <BlogListItem
-        v-for="blog in blogs"
+        v-for="blog in filteredBlogs"
         :key="blog.id"
         :blog="blog"
       />
