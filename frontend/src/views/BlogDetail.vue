@@ -12,10 +12,11 @@ const deleting = ref(false)
 
 function formatTime(timeStr) {
   if (!timeStr) return '-'
-  return timeStr
-    .replace('T', ' ')
-    .replace(/\.\d+Z?$/, '')
-    .replace(/Z$/, '')
+  const date = new Date(timeStr)
+  if (Number.isNaN(date.getTime())) return timeStr
+
+  const pad = (value) => String(value).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`
 }
 
 async function fetchBlog() {

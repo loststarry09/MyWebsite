@@ -89,6 +89,13 @@
   `get_programs` / `add_program` / `get_fun_items` / `add_fun_item`
 - `backend/data.json`  
   当前持久化数据文件（程序列表与娱乐项）
+- `backend/routes/blog.py`  
+  博客 CRUD 接口与时间字段（`createdAt` / `updatedAt`）生成逻辑（UTC）
+
+## 博客时间显示规则（新增）
+
+- 后端以 UTC ISO 字符串保存博客时间（示例：`2026-04-12T15:17:00Z`）。
+- 前端展示时需转换为用户浏览器本地时区，避免“创建于 23:17 却显示 15:17”的时差问题。
 
 ---
 
