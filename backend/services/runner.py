@@ -29,6 +29,18 @@ DEFAULT_PROGRAMS = [
     },
 ]
 
+DEFAULT_BLOGS = [
+    {
+        "id": "welcome-blog",
+        "title": "欢迎来到站内博客",
+        "content": "这是第一篇站内博客内容，你可以在后续阶段新增、编辑和删除博客。",
+        "tags": ["公告", "博客"],
+        "isFavorite": False,
+        "createdAt": "2026-04-12T00:00:00Z",
+        "updatedAt": "2026-04-12T00:00:00Z",
+    }
+]
+
 DATA_FILE_PATH = Path(__file__).resolve().parents[1] / "data.json"
 
 
@@ -36,34 +48,40 @@ def _default_programs():
     return [dict(item) for item in DEFAULT_PROGRAMS]
 
 
+def _default_blogs():
+    return [dict(item) for item in DEFAULT_BLOGS]
+
+
 def _load_data():
     if not DATA_FILE_PATH.exists():
-        return _default_programs(), []
+        return _default_programs(), [], _default_blogs()
 
     try:
         with DATA_FILE_PATH.open("r", encoding="utf-8") as data_file:
             payload = json.load(data_file)
     except (json.JSONDecodeError, OSError):
-        return _default_programs(), []
+        return _default_programs(), [], _default_blogs()
 
     if not isinstance(payload, dict):
-        return _default_programs(), []
+        return _default_programs(), [], _default_blogs()
 
     programs = payload.get("programs", [])
     fun_items = payload.get("fun", [])
-    if not isinstance(programs, list) or not isinstance(fun_items, list):
-        return _default_programs(), []
+    blogs = payload.get("blogs", _default_blogs())
+    if not isinstance(programs, list) or not isinstance(fun_items, list) or not isinstance(blogs, list):
+        return _default_programs(), [], _default_blogs()
 
     normalized_programs = [item for item in programs if isinstance(item, dict)]
     normalized_fun_items = [item for item in fun_items if isinstance(item, dict)]
-    return normalized_programs, normalized_fun_items
+    normalized_blogs = [item for item in blogs if isinstance(item, dict)]
+    return normalized_programs, normalized_fun_items, normalized_blogs
 
 
-PROGRAMS, FUN_ITEMS = _load_data()
+PROGRAMS, FUN_ITEMS, BLOGS = _load_data()
 
 
 def _save_data():
-    payload = {"programs": PROGRAMS, "fun": FUN_ITEMS}
+    payload = {"programs": PROGRAMS, "fun": FUN_ITEMS, "blogs": BLOGS}
     with DATA_FILE_PATH.open("w", encoding="utf-8") as data_file:
         json.dump(payload, data_file, ensure_ascii=False, indent=2)
 
@@ -90,6 +108,14 @@ def add_fun_item(fun_item: dict):
 
 def get_fun_items():
     return FUN_ITEMS
+
+
+def get_blogs():
+    return BLOGS
+
+
+def get_blog_by_id(blog_id: str):
+    return next((item for item in BLOGS if item.get("id") == blog_id), None)
 
 
 BLOCKED_COMMANDS = {

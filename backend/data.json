@@ -30,5 +30,19 @@
       "status": "规划中"
     }
   ],
-  "fun": []
+  "fun": [],
+  "blogs": [
+    {
+      "id": "welcome-blog",
+      "title": "欢迎来到站内博客",
+      "content": "这是第一篇站内博客内容，你可以在后续阶段新增、编辑和删除博客。",
+      "tags": [
+        "公告",
+        "博客"
+      ],
+      "isFavorite": false,
+      "createdAt": "2026-04-12T00:00:00Z",
+      "updatedAt": "2026-04-12T00:00:00Z"
+    }
+  ]
 }

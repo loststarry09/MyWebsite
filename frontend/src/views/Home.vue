@@ -10,9 +10,8 @@ import NavCard from '../components/NavCard.vue'
         <NavCard title="个人主页" subtitle="查看简介" to="/coming-soon" />
         <NavCard
           title="博客"
-          subtitle="打开外部博客"
-          href="https://example.com"
-          :external="true"
+          subtitle="查看站内博客"
+          to="/blog"
         />
         <NavCard title="我的程序" subtitle="查看项目列表" to="/programs" />
         <NavCard title="娱乐" subtitle="轻松一下" to="/fun" />

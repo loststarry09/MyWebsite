@@ -4,12 +4,16 @@ import Programs from '../views/Programs.vue'
 import ProgramDetail from '../views/ProgramDetail.vue'
 import Fun from '../views/Fun.vue'
 import ComingSoon from '../views/ComingSoon.vue'
+import BlogList from '../views/BlogList.vue'
+import BlogDetail from '../views/BlogDetail.vue'
 
 const routes = [
   { path: '/', name: 'home', component: Home },
   { path: '/programs', name: 'programs', component: Programs },
   { path: '/program/:id', name: 'program-detail', component: ProgramDetail },
   { path: '/fun', name: 'fun', component: Fun },
+  { path: '/blog', name: 'blog', component: BlogList },
+  { path: '/blog/:id', name: 'blog-detail', component: BlogDetail },
   { path: '/coming-soon', name: 'coming-soon', component: ComingSoon },
 ]
 
