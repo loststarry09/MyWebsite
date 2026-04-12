@@ -1,13 +1,21 @@
+import os
+
 from flask import Flask
+from werkzeug.middleware.proxy_fix import ProxyFix
 
 from routes.program import program_bp
 
 
 def create_app() -> Flask:
     app = Flask(__name__)
+    app.config["JSON_AS_ASCII"] = False
+    app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)  # type: ignore[assignment]
     app.register_blueprint(program_bp, url_prefix="/api")
     return app
 
 
 if __name__ == "__main__":
-    create_app().run(host="0.0.0.0", port=5000)
+    host = os.getenv("APP_HOST", "0.0.0.0")
+    port = int(os.getenv("APP_PORT", "5000"))
+    debug = os.getenv("APP_DEBUG", "1").lower() in {"1", "true", "yes", "on"}
+    create_app().run(host=host, port=port, debug=debug)
