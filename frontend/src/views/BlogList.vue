@@ -1,14 +1,16 @@
 <script setup>
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { computed, onMounted, ref, watch } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import BlogListItem from '../components/BlogListItem.vue'
 
+const route = useRoute()
+const router = useRouter()
 const blogs = ref([])
 const loading = ref(true)
 const loadError = ref('')
-const selectedTag = ref('')
-const favoritesOnly = ref(false)
+const selectedTag = ref(typeof route.query.tag === 'string' ? route.query.tag : '')
+const favoritesOnly = ref(route.query.fav === '1')
 
 const allTags = computed(() => {
   const tagSet = new Set()
@@ -44,6 +46,18 @@ async function fetchBlogs() {
   }
 }
 
+watch([selectedTag, favoritesOnly], ([tag, favorite]) => {
+  const nextQuery = { ...route.query }
+  if (tag) nextQuery.tag = tag
+  else delete nextQuery.tag
+
+  if (favorite) nextQuery.fav = '1'
+  else delete nextQuery.fav
+
+  if (nextQuery.tag === route.query.tag && nextQuery.fav === route.query.fav) return
+  router.replace({ query: nextQuery })
+})
+
 onMounted(fetchBlogs)
 </script>
 
@@ -57,7 +71,7 @@ onMounted(fetchBlogs)
         <p class="mt-2 text-sm text-stone-500 transition-colors duration-300 dark:text-stone-400">这里是站内博客列表。</p>
       </div>
       <RouterLink
-        to="/blog/new"
+        :to="{ path: '/blog/new', query: { from: route.fullPath } }"
         class="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 shadow-sm transition duration-300 hover:-translate-y-0.5 hover:shadow dark:border-stone-600 dark:bg-stone-700 dark:text-stone-200 dark:hover:bg-stone-600"
       >
         新建博客

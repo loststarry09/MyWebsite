@@ -6,6 +6,10 @@ import { RouterLink, useRoute, useRouter } from 'vue-router'
 const route = useRoute()
 const router = useRouter()
 const isEdit = computed(() => Boolean(route.params.id))
+const backToListPath = computed(() => {
+  const from = route.query.from
+  return typeof from === 'string' && from.startsWith('/blog') ? from : '/blog'
+})
 
 const loading = ref(false)
 const submitLoading = ref(false)
@@ -135,7 +139,7 @@ onMounted(fetchBlogForEdit)
     </form>
 
     <div class="mt-6 flex flex-wrap gap-4 text-sm">
-      <RouterLink to="/blog" class="font-medium text-stone-700 underline-offset-2 transition-colors duration-300 hover:underline dark:text-stone-300">
+      <RouterLink :to="backToListPath" class="font-medium text-stone-700 underline-offset-2 transition-colors duration-300 hover:underline dark:text-stone-300">
         返回博客列表
       </RouterLink>
     </div>
