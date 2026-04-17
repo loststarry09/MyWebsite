@@ -1,0 +1,48 @@
+{
+  "programs": [
+    {
+      "id": "focus-timer",
+      "name": "专注计时器",
+      "summary": "一个轻量的番茄钟工具，支持自定义时长与阶段提醒。",
+      "stack": [
+        "Vue 3",
+        "Tailwind CSS"
+      ],
+      "status": "进行中"
+    },
+    {
+      "id": "daily-notes",
+      "name": "每日随记",
+      "summary": "简洁的日记记录应用，强调快速输入和回顾体验。",
+      "stack": [
+        "Flask",
+        "SQLite"
+      ],
+      "status": "维护中"
+    },
+    {
+      "id": "image-cleanup",
+      "name": "图片整理助手",
+      "summary": "用于批量重命名与归档图片素材的小工具。",
+      "stack": [
+        "Python"
+      ],
+      "status": "规划中"
+    }
+  ],
+  "fun": [],
+  "blogs": [
+    {
+      "id": "welcome-blog",
+      "title": "欢迎来到站内博客",
+      "content": "这是第一篇站内博客内容，你可以在后续阶段新增、编辑和删除博客。",
+      "tags": [
+        "公告",
+        "博客"
+      ],
+      "isFavorite": false,
+      "createdAt": "2026-04-12T00:00:00Z",
+      "updatedAt": "2026-04-12T00:00:00Z"
+    }
+  ]
+}

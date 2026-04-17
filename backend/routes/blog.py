@@ -1,0 +1,184 @@
+from datetime import datetime, timezone
+import json
+from pathlib import Path
+from time import time
+
+from flask import Blueprint, jsonify, request
+
+blog_bp = Blueprint("blog", __name__)
+
+BLOGS_FILE = Path(__file__).resolve().parent.parent / "blogs.json"
+
+
+def _default_blogs():
+    return [
+        {
+            "id": "welcome-blog",
+            "title": "欢迎来到站内博客",
+            "content": "这是博客示例数据，后续可以通过 API 增删改查。",
+            "tags": ["公告", "示例"],
+            "isFavorite": True,
+            "createdAt": "2026-04-12T00:00:00Z",
+            "updatedAt": "2026-04-12T00:00:00Z",
+        },
+        {
+            "id": "phase4-note",
+            "title": "阶段4后端接口完成说明",
+            "content": "本篇用于演示 Flask 博客 CRUD 接口的数据结构。",
+            "tags": ["Flask", "API"],
+            "isFavorite": False,
+            "createdAt": "2026-04-12T00:00:00Z",
+            "updatedAt": "2026-04-12T00:00:00Z",
+        },
+    ]
+
+
+def _save_blogs():
+    BLOGS_FILE.write_text(json.dumps(BLOGS, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _load_blogs():
+    if not BLOGS_FILE.exists():
+        return _default_blogs()
+
+    try:
+        data = json.loads(BLOGS_FILE.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return _default_blogs()
+
+    return data if isinstance(data, list) else _default_blogs()
+
+
+BLOGS = _load_blogs()
+if not BLOGS_FILE.exists():
+    _save_blogs()
+
+
+def _get_blog_index(blog_id: str):
+    for index, blog in enumerate(BLOGS):
+        if blog.get("id") == blog_id:
+            return index
+    return None
+
+
+def _normalize_tags(tags):
+    if isinstance(tags, list):
+        return [str(tag).strip() for tag in tags if str(tag).strip()]
+    if isinstance(tags, str):
+        return [item.strip() for item in tags.replace("，", ",").split(",") if item.strip()]
+    return []
+
+
+def _now_iso():
+    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+@blog_bp.get("/blogs")
+def list_blogs():
+    return jsonify(BLOGS)
+
+
+@blog_bp.get("/blog/")
+def get_blog_by_query():
+    blog_id = request.args.get("id", "").strip()
+    if not blog_id:
+        return jsonify(
+            {
+                "error": "missing_blog_id",
+                "message": "请通过查询参数 id 提供博客 ID，例如 /api/blog/?id=welcome-blog",
+            }
+        ), 400
+
+    blog_index = _get_blog_index(blog_id)
+    if blog_index is None:
+        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+    return jsonify(BLOGS[blog_index])
+
+
+@blog_bp.get("/blog/<blog_id>")
+def get_blog(blog_id: str):
+    blog_index = _get_blog_index(blog_id)
+    if blog_index is None:
+        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+    return jsonify(BLOGS[blog_index])
+
+
+@blog_bp.post("/blog")
+def create_blog():
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "invalid_json", "message": "请求体必须是 JSON 对象"}), 400
+
+    title = payload.get("title", "")
+    if not isinstance(title, str) or not title.strip():
+        return jsonify({"error": "validation_error", "message": "字段 title 不能为空"}), 400
+
+    now = int(time() * 1000)
+    timestamp = _now_iso()
+    blog = {
+        "id": payload.get("id") if isinstance(payload.get("id"), str) and payload.get("id").strip() else f"blog-{now}",
+        "title": title.strip(),
+        "content": payload.get("content", "") if isinstance(payload.get("content"), str) else "",
+        "tags": _normalize_tags(payload.get("tags")),
+        "isFavorite": bool(payload.get("isFavorite", False)),
+        "createdAt": payload.get("createdAt") if isinstance(payload.get("createdAt"), str) else timestamp,
+        "updatedAt": payload.get("updatedAt") if isinstance(payload.get("updatedAt"), str) else timestamp,
+    }
+    BLOGS.insert(0, blog)
+    try:
+        _save_blogs()
+    except OSError:
+        BLOGS.pop(0)
+        return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
+    return jsonify(blog), 201
+
+
+@blog_bp.put("/blog/<blog_id>")
+def update_blog(blog_id: str):
+    blog_index = _get_blog_index(blog_id)
+    if blog_index is None:
+        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+
+    payload = request.get_json(silent=True)
+    if not isinstance(payload, dict):
+        return jsonify({"error": "invalid_json", "message": "请求体必须是 JSON 对象"}), 400
+
+    current_blog = BLOGS[blog_index]
+
+    if "title" in payload:
+        if not isinstance(payload["title"], str) or not payload["title"].strip():
+            return jsonify({"error": "validation_error", "message": "字段 title 不能为空"}), 400
+        current_blog["title"] = payload["title"].strip()
+
+    if "content" in payload and isinstance(payload["content"], str):
+        current_blog["content"] = payload["content"]
+
+    if "tags" in payload:
+        current_blog["tags"] = _normalize_tags(payload["tags"])
+
+    if "isFavorite" in payload:
+        current_blog["isFavorite"] = bool(payload["isFavorite"])
+
+    current_blog["updatedAt"] = _now_iso()
+
+    BLOGS[blog_index] = current_blog
+    try:
+        _save_blogs()
+    except OSError:
+        return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
+    return jsonify(current_blog)
+
+
+@blog_bp.delete("/blog/<blog_id>")
+def delete_blog(blog_id: str):
+    blog_index = _get_blog_index(blog_id)
+    if blog_index is None:
+        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+
+    deleted = BLOGS.pop(blog_index)
+    try:
+        _save_blogs()
+    except OSError:
+        BLOGS.insert(blog_index, deleted)
+        return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
+    return jsonify({"deleted": True, "blog": deleted})

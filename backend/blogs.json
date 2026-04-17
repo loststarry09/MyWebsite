@@ -1,0 +1,20 @@
+[
+  {
+    "id": "welcome-blog",
+    "title": "欢迎来到站内博客",
+    "content": "这是博客示例数据，后续可以通过 API 增删改查。",
+    "tags": ["公告", "示例"],
+    "isFavorite": true,
+    "createdAt": "2026-04-12T00:00:00Z",
+    "updatedAt": "2026-04-12T00:00:00Z"
+  },
+  {
+    "id": "phase4-note",
+    "title": "阶段4后端接口完成说明",
+    "content": "本篇用于演示 Flask 博客 CRUD 接口的数据结构。",
+    "tags": ["Flask", "API"],
+    "isFavorite": false,
+    "createdAt": "2026-04-12T00:00:00Z",
+    "updatedAt": "2026-04-12T00:00:00Z"
+  }
+]
