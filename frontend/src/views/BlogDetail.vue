@@ -123,7 +123,7 @@ async function deleteBlog() {
       </ul>
 
       <article
-        class="prose prose-stone prose-headings:font-semibold prose-li:my-1 prose-pre:bg-gray-200 prose-pre:text-gray-800 prose-code:bg-gray-100 prose-code:text-red-500 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none mt-4 max-w-none transition-colors duration-300 dark:prose-invert dark:prose-pre:bg-gray-900 dark:prose-pre:text-gray-200 dark:prose-code:bg-gray-800 dark:prose-code:text-pink-400"
+        class="prose prose-stone prose-headings:font-semibold prose-li:my-1 prose-pre:bg-gray-800 prose-pre:text-gray-100 prose-code:bg-gray-100 prose-code:text-red-500 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none mt-4 max-w-none transition-colors duration-300 dark:prose-invert dark:prose-pre:bg-gray-950 dark:prose-pre:text-gray-100 dark:prose-code:bg-gray-800 dark:prose-code:text-pink-400"
         aria-label="Blog post content"
         v-html="renderedContent"
       />
