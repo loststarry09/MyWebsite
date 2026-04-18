@@ -70,8 +70,17 @@ def _invalid_blog_id_response():
 
 @blog_bp.get("/blogs")
 def list_blogs():
-    blogs = Blog.query.order_by(Blog.created_at.desc(), Blog.id.desc()).all()
+    tag = request.args.get("tag", "").strip()
+    query = Blog.query
+    if tag:
+        query = query.join(Blog.tags).filter(Tag.name == tag)
+    blogs = query.order_by(Blog.created_at.desc(), Blog.id.desc()).all()
     return jsonify([_serialize_blog(blog) for blog in blogs])
+
+
+@blog_bp.get("/blog")
+def list_blogs_v2():
+    return list_blogs()
 
 
 @blog_bp.get("/blog/")
