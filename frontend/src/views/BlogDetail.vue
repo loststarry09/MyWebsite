@@ -2,7 +2,7 @@
 import axios from 'axios'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
-import { computed, onMounted, ref } from 'vue'
+import { onMounted, ref, watchEffect } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -11,14 +11,29 @@ const blog = ref(null)
 const loading = ref(true)
 const loadError = ref('')
 const deleting = ref(false)
+const renderedContent = ref('')
 
-const renderedContent = computed(() => {
-  const markdownText = blog.value?.content ?? ''
-  const rawHtml = marked(markdownText, {
-    gfm: true,
-    breaks: true,
+watchEffect((onCleanup) => {
+  let active = true
+  onCleanup(() => {
+    active = false
   })
-  return DOMPurify.sanitize(rawHtml)
+
+  const markdownText = blog.value?.content ?? ''
+  Promise.resolve(
+    marked.parse(markdownText, {
+      gfm: true,
+      breaks: true,
+    }),
+  )
+    .then((rawHtml) => {
+      if (!active) return
+      renderedContent.value = DOMPurify.sanitize(rawHtml)
+    })
+    .catch(() => {
+      if (!active) return
+      renderedContent.value = ''
+    })
 })
 
 function formatTime(timeStr) {
