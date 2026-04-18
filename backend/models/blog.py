@@ -29,7 +29,6 @@ class Blog(db.Model):
         secondary="blog_tags",
         back_populates="blogs",
     )
-    blog_tags = db.relationship("BlogTag", back_populates="blog", cascade="all, delete-orphan")
 
 
 class Tag(db.Model):
@@ -43,7 +42,6 @@ class Tag(db.Model):
         secondary="blog_tags",
         back_populates="tags",
     )
-    blog_tags = db.relationship("BlogTag", back_populates="tag", cascade="all, delete-orphan")
 
 
 class BlogTag(db.Model):
@@ -52,5 +50,5 @@ class BlogTag(db.Model):
     blog_id = db.Column(db.Integer, db.ForeignKey("blogs.id"), primary_key=True)
     tag_id = db.Column(db.Integer, db.ForeignKey("tags.id"), primary_key=True)
 
-    blog = db.relationship("Blog", back_populates="blog_tags")
-    tag = db.relationship("Tag", back_populates="blog_tags")
+    blog = db.relationship("Blog")
+    tag = db.relationship("Tag")
