@@ -2,7 +2,7 @@
 import axios from 'axios'
 import DOMPurify from 'dompurify'
 import { marked } from 'marked'
-import { onMounted, ref, watchEffect } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -12,35 +12,37 @@ const loading = ref(true)
 const loadError = ref('')
 const deleting = ref(false)
 const renderedContent = ref('')
+const sanitizeConfig = { USE_PROFILES: { html: true } }
+let renderVersion = 0
 
-watchEffect((onCleanup) => {
-  let active = true
-  onCleanup(() => {
-    active = false
-  })
-
-  const markdownText = blog.value?.content ?? ''
-  const parsed = marked.parse(markdownText, {
-    gfm: true,
-    breaks: true,
-  })
-
-  if (typeof parsed === 'string') {
-    renderedContent.value = DOMPurify.sanitize(parsed)
-    return
-  }
-
-  parsed
-    .then((rawHtml) => {
-      if (!active) return
-      renderedContent.value = DOMPurify.sanitize(rawHtml)
+watch(
+  () => blog.value?.content ?? '',
+  (markdownText) => {
+    const currentVersion = ++renderVersion
+    const parsed = marked.parse(markdownText, {
+      gfm: true,
+      breaks: true,
     })
-    .catch((error) => {
-      if (!active) return
-      console.error('Markdown render failed:', error)
-      renderedContent.value = ''
-    })
-})
+
+    if (typeof parsed === 'string') {
+      if (currentVersion !== renderVersion) return
+      renderedContent.value = DOMPurify.sanitize(parsed, sanitizeConfig)
+      return
+    }
+
+    parsed
+      .then((rawHtml) => {
+        if (currentVersion !== renderVersion) return
+        renderedContent.value = DOMPurify.sanitize(rawHtml, sanitizeConfig)
+      })
+      .catch((error) => {
+        if (currentVersion !== renderVersion) return
+        console.error('Markdown render failed:', error)
+        renderedContent.value = ''
+      })
+  },
+  { immediate: true },
+)
 
 function formatTime(timeStr) {
   if (!timeStr) return '-'
