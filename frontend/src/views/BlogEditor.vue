@@ -167,6 +167,7 @@ onMounted(fetchBlogForEdit)
           <span>预览</span>
           <article
             class="markdown-prose min-h-80 max-w-none rounded border border-stone-300 bg-white px-3 py-2 transition-colors duration-300 dark:border-stone-600 dark:bg-stone-900"
+            aria-label="Markdown 预览"
             v-html="previewHtml"
           />
         </div>

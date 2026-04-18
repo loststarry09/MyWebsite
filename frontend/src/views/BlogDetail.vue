@@ -124,6 +124,7 @@ async function deleteBlog() {
 
       <article
         class="markdown-prose mt-4 max-w-none transition-colors duration-300"
+        aria-label="博客正文内容"
         v-html="renderedContent"
       />
 
