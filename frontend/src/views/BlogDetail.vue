@@ -14,7 +14,7 @@ const deleting = ref(false)
 
 const renderedContent = computed(() => {
   const markdownText = blog.value?.content ?? ''
-  const rawHtml = marked.parse(markdownText, {
+  const rawHtml = marked(markdownText, {
     gfm: true,
     breaks: true,
   })
