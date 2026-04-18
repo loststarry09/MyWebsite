@@ -169,6 +169,7 @@ def list_blogs():
 @blog_bp.get("/blog")
 @_safe_route
 def list_blogs_compat():
+    """兼容单数路径 /api/blog，实际复用 /api/blogs 的列表查询逻辑。"""
     return list_blogs()
 
 
