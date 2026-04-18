@@ -1,4 +1,5 @@
 import json
+import os
 from threading import Lock
 from datetime import datetime
 from pathlib import Path
@@ -6,10 +7,13 @@ from pathlib import Path
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event
+from sqlalchemy.engine.url import make_url
 
 # 全局数据库实例，供模型和应用共享
 db = SQLAlchemy()
 DATABASE_URI = "sqlite:////var/www/MyWebsiteDatabase/blog.db"
+EXPECTED_DB_PATH = Path("/var/www/MyWebsiteDatabase/blog.db")
+LEGACY_DB_PATH = Path("/var/www/MyWebsite/backend/blog.db")
 MIGRATION_MARKER_KEY = "json_to_sqlite_blog_migration_v1"
 LEGACY_DATA_JSON_PATH = Path(__file__).resolve().parents[1] / "data.json"
 LEGACY_BLOGS_JSON_PATH = Path(__file__).resolve().parents[1] / "blogs.json"
@@ -129,11 +133,38 @@ def _migrate_legacy_json_blogs() -> None:
         raise
 
 
+def _resolve_sqlite_db_path(database_uri: str) -> Path | None:
+    url = make_url(database_uri)
+    if not url.drivername.startswith("sqlite"):
+        return None
+    if not url.database:
+        raise RuntimeError(f"Invalid SQLite database URI: {database_uri}")
+    db_path = Path(url.database).expanduser()
+    return db_path if db_path.is_absolute() else db_path.resolve()
+
+
+def _assert_database_uri_is_safe(database_uri: str) -> None:
+    sqlite_path = _resolve_sqlite_db_path(database_uri)
+    if sqlite_path is None:
+        return
+    normalized = sqlite_path.resolve()
+    if normalized == LEGACY_DB_PATH or "/var/www/MyWebsite/backend/" in normalized.as_posix():
+        raise RuntimeError(f"Fatal: legacy SQLite path detected: {normalized}")
+    if normalized != EXPECTED_DB_PATH:
+        raise RuntimeError(f"Fatal: SQLite path mismatch: {normalized}, expected: {EXPECTED_DB_PATH}")
+
+
 def init_db(app: Flask) -> None:
     """初始化 SQLite 与 SQLAlchemy，并自动建库建表。"""
-    app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
+    database_uri = os.getenv("SQLALCHEMY_DATABASE_URI", DATABASE_URI).strip()
+    sqlite_path = _resolve_sqlite_db_path(database_uri)
+    if sqlite_path is not None:
+        app.logger.info(f"Resolved SQLite absolute path: {sqlite_path}")
+    _assert_database_uri_is_safe(database_uri)
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_uri
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"timeout": 30}}
+    app.logger.info(f"Using database at: {app.config['SQLALCHEMY_DATABASE_URI']}")
     db.init_app(app)
 
     with app.app_context():
