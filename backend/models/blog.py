@@ -47,5 +47,5 @@ class Tag(db.Model):
 class BlogTag(db.Model):
     __tablename__ = "blog_tags"
 
-    blog_id = db.Column(db.Integer, db.ForeignKey("blogs.id"), primary_key=True)
-    tag_id = db.Column(db.Integer, db.ForeignKey("tags.id"), primary_key=True)
+    blog_id = db.Column(db.Integer, db.ForeignKey("blogs.id", ondelete="CASCADE"), primary_key=True)
+    tag_id = db.Column(db.Integer, db.ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True)
