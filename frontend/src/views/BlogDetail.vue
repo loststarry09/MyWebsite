@@ -123,7 +123,7 @@ async function deleteBlog() {
       </ul>
 
       <article
-        class="prose prose-stone mt-4 max-w-none transition-colors duration-300 dark:prose-invert"
+        class="prose prose-stone prose-headings:font-semibold prose-li:my-1 mt-4 max-w-none transition-colors duration-300 dark:prose-invert"
         v-html="renderedContent"
       />
 

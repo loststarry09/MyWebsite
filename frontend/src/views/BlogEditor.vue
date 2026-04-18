@@ -166,7 +166,7 @@ onMounted(fetchBlogForEdit)
         <div class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
           <span>预览</span>
           <article
-            class="prose prose-stone min-h-80 max-w-none rounded border border-stone-300 bg-white px-3 py-2 transition-colors duration-300 dark:border-stone-600 dark:bg-stone-900 dark:prose-invert"
+            class="prose prose-stone prose-headings:font-semibold prose-li:my-1 min-h-80 max-w-none rounded border border-stone-300 bg-white px-3 py-2 transition-colors duration-300 dark:border-stone-600 dark:bg-stone-900 dark:prose-invert"
             v-html="previewHtml"
           />
         </div>
