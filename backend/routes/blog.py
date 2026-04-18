@@ -123,7 +123,7 @@ def list_blogs():
 
 
 @blog_bp.get("/blog")
-def list_blogs_alias():
+def list_blogs_compat():
     return list_blogs()
 
 
@@ -160,7 +160,7 @@ def get_blog(blog_id: str):
 
     Blog.query.filter(Blog.id == blog_pk).update({"views": Blog.views + 1}, synchronize_session=False)
     db.session.commit()
-    blog = db.session.get(Blog, blog_pk)
+    db.session.refresh(blog)
     return jsonify(_serialize_blog(blog))
 
 
