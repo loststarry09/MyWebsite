@@ -15,10 +15,14 @@ const backToListPath = computed(() => {
 
 const loading = ref(false)
 const submitLoading = ref(false)
+const uploadLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const uploadMessage = ref('')
 const previewHtml = ref('')
 const previewVersionCounter = ref(0)
+const fileInputRef = ref(null)
+const contentTextareaRef = ref(null)
 setupMarkdownRenderer()
 
 const form = ref({
@@ -120,6 +124,62 @@ async function submitForm() {
   }
 }
 
+function openImagePicker() {
+  if (uploadLoading.value) return
+  fileInputRef.value?.click()
+}
+
+function insertImageMarkdown(imageUrl) {
+  const textarea = contentTextareaRef.value
+  const markdown = `![image](${imageUrl})`
+  if (!textarea) {
+    form.value.content = `${form.value.content}${form.value.content ? '\n' : ''}${markdown}`
+    return
+  }
+
+  const start = textarea.selectionStart ?? form.value.content.length
+  const end = textarea.selectionEnd ?? start
+  const before = form.value.content.slice(0, start)
+  const after = form.value.content.slice(end)
+  form.value.content = `${before}${markdown}${after}`
+
+  const cursorPosition = start + markdown.length
+  requestAnimationFrame(() => {
+    textarea.focus()
+    textarea.setSelectionRange(cursorPosition, cursorPosition)
+  })
+}
+
+async function onImageSelected(event) {
+  const input = event.target
+  const file = input?.files?.[0]
+  uploadMessage.value = ''
+  errorMessage.value = ''
+
+  if (!file) return
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  uploadLoading.value = true
+  try {
+    const { data } = await axios.post('/api/upload_image', formData)
+    const imageUrl = data?.data?.url
+    if (!imageUrl || typeof imageUrl !== 'string') {
+      throw new Error('missing_image_url')
+    }
+    insertImageMarkdown(imageUrl)
+    uploadMessage.value = '图片上传成功，已插入 Markdown。'
+  } catch (error) {
+    uploadMessage.value = '图片上传失败，请检查格式或大小后重试。'
+  } finally {
+    uploadLoading.value = false
+    if (input) {
+      input.value = ''
+    }
+  }
+}
+
 onMounted(fetchBlogForEdit)
 </script>
 
@@ -156,7 +216,28 @@ onMounted(fetchBlogForEdit)
       <div class="grid gap-4 md:grid-cols-2">
         <label class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
           内容（Markdown）
+          <div class="mb-2 flex flex-wrap items-center gap-2">
+            <input
+              ref="fileInputRef"
+              type="file"
+              accept=".jpg,.jpeg,.png,.gif,.webp,image/jpeg,image/png,image/gif,image/webp"
+              class="hidden"
+              @change="onImageSelected"
+            />
+            <button
+              type="button"
+              class="rounded border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 transition-colors duration-300 hover:bg-stone-100 disabled:opacity-60 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-200 dark:hover:bg-stone-800"
+              :disabled="uploadLoading"
+              @click="openImagePicker"
+            >
+              {{ uploadLoading ? '上传中...' : '上传图片' }}
+            </button>
+            <span v-if="uploadMessage" class="text-xs text-stone-500 transition-colors duration-300 dark:text-stone-400">
+              {{ uploadMessage }}
+            </span>
+          </div>
           <textarea
+            ref="contentTextareaRef"
             v-model="form.content"
             rows="14"
             class="min-h-80 rounded border border-stone-300 bg-white px-3 py-2 font-mono text-sm text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"

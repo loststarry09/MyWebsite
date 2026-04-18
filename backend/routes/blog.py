@@ -1,4 +1,6 @@
 import logging
+import os
+import uuid
 from functools import wraps
 from datetime import datetime, timezone
 
@@ -18,6 +20,9 @@ DEFAULT_PAGE_SIZE = 10
 MAX_PAGE = 10000
 MAX_PAGE_SIZE = 100
 MAX_CONTENT_LENGTH = 20000
+IMAGE_UPLOAD_DIR = "/home/admin/program/MyWebsite/uploads/"
+IMAGE_MAX_SIZE_BYTES = 5 * 1024 * 1024
+ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 
 
 def _normalize_tags(tags):
@@ -114,6 +119,22 @@ def _validate_content(value):
     if len(value) > MAX_CONTENT_LENGTH:
         return f"字段 content 长度不能超过 {MAX_CONTENT_LENGTH} 个字符"
     return None
+
+
+def _validate_image_extension(filename: str) -> str | None:
+    extension = os.path.splitext(filename)[1].lower()
+    if extension in ALLOWED_IMAGE_EXTENSIONS:
+        return extension
+    return None
+
+
+def _get_upload_file_size(file_storage) -> int:
+    stream = file_storage.stream
+    current_position = stream.tell()
+    stream.seek(0, os.SEEK_END)
+    size = stream.tell()
+    stream.seek(current_position)
+    return size
 
 
 def _parse_bool_with_status(value):
@@ -273,6 +294,39 @@ def create_blog():
     logger.info("blog_created id=%s title=%s", blog.id, blog.title)
 
     return _success_response(_serialize_blog(blog), status=201)
+
+
+@blog_bp.post("/upload_image")
+@_safe_route
+def upload_image():
+    uploaded_file = request.files.get("file")
+    if uploaded_file is None:
+        return _error_response("missing_file", "请通过 file 字段上传图片文件", 400, code="MISSING_FILE")
+
+    if not uploaded_file.filename:
+        return _error_response("invalid_file", "上传文件名不能为空", 400, code="INVALID_FILE")
+
+    extension = _validate_image_extension(uploaded_file.filename)
+    if extension is None:
+        return _error_response(
+            "invalid_file_type",
+            "仅支持上传 jpg、jpeg、png、gif、webp 格式图片",
+            400,
+            code="INVALID_FILE_TYPE",
+        )
+
+    file_size = _get_upload_file_size(uploaded_file)
+    if file_size > IMAGE_MAX_SIZE_BYTES:
+        return _error_response("file_too_large", "单张图片大小不能超过 5MB", 400, code="FILE_TOO_LARGE")
+
+    os.makedirs(IMAGE_UPLOAD_DIR, exist_ok=True)
+    generated_name = f"{uuid.uuid4().hex}{extension}"
+    save_path = os.path.join(IMAGE_UPLOAD_DIR, generated_name)
+    uploaded_file.stream.seek(0)
+    uploaded_file.save(save_path)
+
+    image_url = f"/uploads/{generated_name}"
+    return _success_response({"url": image_url}, status=201)
 
 
 @blog_bp.put("/blog/<blog_id>")

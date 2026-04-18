@@ -20,7 +20,7 @@
       </RouterView>
     </main>
     <p class="fixed bottom-3 left-3 text-[11px] text-stone-400 transition-colors duration-300 dark:text-stone-500">
-      版本：MyWebsite
+      版本：V1.2
     </p>
   </div>
 </template>

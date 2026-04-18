@@ -81,7 +81,7 @@ npm run dev
 
 ### 前置说明（务必先读）
 
-本项目采用 **用户目录部署方案（User-level Deployment）**，并使用“代码、数据、日志、静态产物”隔离结构，显著降低权限冲突风险。
+本项目采用 **用户目录部署方案（User-level Deployment）**，并使用“代码、数据、日志、静态产物、上传目录”隔离结构，显著降低权限冲突风险。
 
 本文示例以 `admin` 用户为例，统一工作区如下：
 
@@ -90,6 +90,7 @@ npm run dev
 - 数据库目录：`/home/admin/program/MyWebsite/database`
 - 日志目录：`/home/admin/program/MyWebsite/logs`
 - 前端静态目录：`/home/admin/program/MyWebsite/frontend-dist`
+- 上传文件目录：`/home/admin/program/MyWebsite/uploads`
 
 > `admin` 为示例用户名，请替换为你的真实系统用户名。
 
@@ -107,10 +108,10 @@ git clone <your-repo-url> code
 
 ```bash
 cd /home/admin/program/MyWebsite
-mkdir -p database logs frontend-dist
+mkdir -p database logs frontend-dist uploads
 ```
 
-**重要：GitHub 仓库只包含源码，不包含 `database`、`logs`、`frontend-dist` 这些运行时目录，必须手动创建。Flask 在首次启动时会在 `database` 目录自动生成 `blog.db`。**
+**重要：GitHub 仓库只包含源码，不包含 `database`、`logs`、`frontend-dist`、`uploads` 这些运行时目录，必须手动创建。Flask 在首次启动时会在 `database` 目录自动生成 `blog.db`。**
 
 **强烈警告：请使用普通用户直接执行 `mkdir` 创建 `database` 目录，绝不要加 `sudo`，否则极易导致目录/数据库归属变为 `root`，引发后端写入失败。**
 
@@ -202,6 +203,30 @@ chmod +x /home/admin /home/admin/program /home/admin/program/MyWebsite
 
 ```bash
 sudo nano /etc/nginx/sites-available/mywebsite
+```
+
+在 `/etc/nginx/sites-available/mywebsite` 的 `server { ... }` 中新增上传目录静态映射（绕过 Flask）：
+
+```nginx
+location /uploads/ {
+    alias /home/admin/program/MyWebsite/uploads/;
+    expires 30d;
+    add_header Cache-Control "public, max-age=2592000, immutable";
+    access_log off;
+    try_files $uri =404;
+}
+```
+
+并确保目录可读取（示例）：
+
+```bash
+mkdir -p /home/admin/program/MyWebsite/uploads
+chmod 755 /home/admin/program/MyWebsite/uploads
+```
+
+测试配置并平滑重载：
+
+```bash
 sudo nginx -t
 sudo systemctl enable nginx
 sudo systemctl reload nginx
