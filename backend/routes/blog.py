@@ -158,7 +158,7 @@ def get_blog(blog_id: str):
     if blog is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
-    blog.views = int(blog.views or 0) + 1
+    blog.views += 1
     db.session.commit()
     return jsonify(_serialize_blog(blog))
 
