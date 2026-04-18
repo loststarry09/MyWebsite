@@ -116,7 +116,7 @@ def _validate_content(value):
     return None
 
 
-def _parse_bool_payload(value):
+def _try_parse_bool(value):
     if isinstance(value, bool):
         return value, True
     if isinstance(value, int) and value in {0, 1}:
@@ -167,6 +167,7 @@ def list_blogs():
     page_size = _parse_int_arg("pageSize", default=DEFAULT_PAGE_SIZE, minimum=1, maximum=MAX_PAGE_SIZE)
     offset = (page - 1) * page_size
 
+    # 预加载 tags，避免列表序列化时逐条触发关联查询（N+1）。
     query = Blog.query.options(selectinload(Blog.tags))
     if tag:
         query = query.join(Blog.tags).filter(Tag.name == tag)
@@ -251,11 +252,11 @@ def create_blog():
     except (ValueError, TypeError):
         return _error_response("validation_error", "字段 views 必须是数字", 400, code="VALIDATION_ERROR")
 
-    is_favorite, is_favorite_ok = _parse_bool_payload(payload.get("isFavorite", False))
+    is_favorite, is_favorite_ok = _try_parse_bool(payload.get("isFavorite", False))
     if not is_favorite_ok:
         return _error_response("validation_error", "字段 isFavorite 必须是布尔值", 400, code="VALIDATION_ERROR")
 
-    is_published, is_published_ok = _parse_bool_payload(payload.get("isPublished", False))
+    is_published, is_published_ok = _try_parse_bool(payload.get("isPublished", False))
     if not is_published_ok:
         return _error_response("validation_error", "字段 isPublished 必须是布尔值", 400, code="VALIDATION_ERROR")
 
@@ -305,13 +306,13 @@ def update_blog(blog_id: str):
         blog.tags = _resolve_tags(payload["tags"])
 
     if "isFavorite" in payload:
-        is_favorite, is_favorite_ok = _parse_bool_payload(payload["isFavorite"])
+        is_favorite, is_favorite_ok = _try_parse_bool(payload["isFavorite"])
         if not is_favorite_ok:
             return _error_response("validation_error", "字段 isFavorite 必须是布尔值", 400, code="VALIDATION_ERROR")
         blog.is_favorite = is_favorite
 
     if "isPublished" in payload:
-        is_published, is_published_ok = _parse_bool_payload(payload["isPublished"])
+        is_published, is_published_ok = _try_parse_bool(payload["isPublished"])
         if not is_published_ok:
             return _error_response("validation_error", "字段 isPublished 必须是布尔值", 400, code="VALIDATION_ERROR")
         blog.is_published = is_published

@@ -14,6 +14,14 @@ LEGACY_DATA_JSON_PATH = Path(__file__).resolve().parents[1] / "data.json"
 LEGACY_BLOGS_JSON_PATH = Path(__file__).resolve().parents[1] / "blogs.json"
 
 
+def _set_sqlite_pragma(dbapi_connection, _connection_record):
+    cursor = dbapi_connection.cursor()
+    cursor.execute("PRAGMA foreign_keys=ON")
+    cursor.execute("PRAGMA journal_mode=WAL")
+    cursor.execute("PRAGMA synchronous=NORMAL")
+    cursor.close()
+
+
 def _normalize_tags(tags) -> list[str]:
     if isinstance(tags, list):
         normalized = [str(tag).strip() for tag in tags if str(tag).strip()]
@@ -132,13 +140,7 @@ def init_db(app: Flask) -> None:
         if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:") and not app.extensions.get(
             "sqlite_pragmas_registered", False
         ):
-            @event.listens_for(db.engine, "connect")
-            def _set_sqlite_pragma(dbapi_connection, _connection_record):
-                cursor = dbapi_connection.cursor()
-                cursor.execute("PRAGMA foreign_keys=ON")
-                cursor.execute("PRAGMA journal_mode=WAL")
-                cursor.execute("PRAGMA synchronous=NORMAL")
-                cursor.close()
+            event.listen(db.engine, "connect", _set_sqlite_pragma)
             app.extensions["sqlite_pragmas_registered"] = True
 
         db.create_all()
