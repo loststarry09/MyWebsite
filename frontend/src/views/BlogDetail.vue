@@ -1,6 +1,8 @@
 <script setup>
 import axios from 'axios'
-import { onMounted, ref } from 'vue'
+import DOMPurify from 'dompurify'
+import { marked } from 'marked'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -9,6 +11,15 @@ const blog = ref(null)
 const loading = ref(true)
 const loadError = ref('')
 const deleting = ref(false)
+
+const renderedContent = computed(() => {
+  const markdownText = blog.value?.content ?? ''
+  const rawHtml = marked.parse(markdownText, {
+    gfm: true,
+    breaks: true,
+  })
+  return DOMPurify.sanitize(rawHtml)
+})
 
 function formatTime(timeStr) {
   if (!timeStr) return '-'
@@ -88,7 +99,10 @@ async function deleteBlog() {
         </li>
       </ul>
 
-      <article class="mt-4 whitespace-pre-wrap text-sm leading-6 text-stone-700 transition-colors duration-300 dark:text-stone-300">{{ blog.content }}</article>
+      <article
+        class="prose prose-stone mt-4 max-w-none transition-colors duration-300 dark:prose-invert"
+        v-html="renderedContent"
+      />
 
       <p class="mt-6 text-sm text-gray-500 transition-colors duration-300 dark:text-gray-400">
         📅 创建：{{ formatTime(blog.createdAt) }}<br>
