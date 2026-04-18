@@ -100,6 +100,25 @@ npm run dev
 
 为例，请按实际替换。
 
+### 2.0 首部署前检查清单（建议逐项确认）
+
+- 已将域名 DNS 指向服务器公网 IP（若暂时无域名，可先用服务器 IP 验证 HTTP）
+- 服务器已安装必要工具：`git`、`python3-venv`、`nodejs`、`npm`、`nginx`、`rsync`
+- 防火墙放行 Web 端口（如启用 UFW）：
+  - 若 UFW 尚未启用，先确认不会阻断 SSH，再执行：
+    - `sudo ufw allow OpenSSH`
+    - `sudo ufw enable`
+
+```bash
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+sudo ufw status
+```
+
+- 规划并确认部署目录（本文默认）：
+  - 项目源码：`/var/www/MyWebsiteV1.1`
+  - 前端静态目录：`/var/www/mywebsite-frontend`
+
 ### 2.1 拉取代码并安装依赖
 
 ```bash
@@ -145,10 +164,19 @@ curl http://127.0.0.1:5000/api/programs
 
 ### 2.3 配置 systemd（托管 Gunicorn）
 
-复制模板并启用：
+复制模板、修正路径并启用：
 
 ```bash
-sudo cp /var/www/MyWebsiteV1.1/deploy/mywebsite-backend.service /etc/systemd/system/
+sudo cp /var/www/MyWebsiteV1.1/deploy/mywebsite-backend.service /etc/systemd/system/mywebsite-backend.service
+# 模板默认是 /var/www/MyWebsite/，请替换为你的实际目录（本文示例：/var/www/MyWebsiteV1.1/）
+sudo grep -n '/var/www/MyWebsite' /etc/systemd/system/mywebsite-backend.service
+sudo sed -i 's#/var/www/MyWebsite/#/var/www/MyWebsiteV1.1/#g' /etc/systemd/system/mywebsite-backend.service
+# 确认路径已替换正确
+sudo grep -E 'WorkingDirectory|ExecStart' /etc/systemd/system/mywebsite-backend.service
+
+# 让 www-data 具备后端运行所需读写权限（含 SQLite 与 data.json）
+sudo chown -R www-data:www-data /var/www/MyWebsiteV1.1/backend
+
 sudo systemctl daemon-reload
 sudo systemctl enable mywebsite-backend
 sudo systemctl start mywebsite-backend
@@ -167,7 +195,14 @@ sudo journalctl -u mywebsite-backend -f
 ```bash
 sudo cp /var/www/MyWebsiteV1.1/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
 sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
+# 建议关闭默认站点，避免冲突
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# 按需修改 server_name、root 等参数
+sudo nano /etc/nginx/sites-available/mywebsite
+
 sudo nginx -t
+sudo systemctl enable nginx
 sudo systemctl reload nginx
 ```
 
@@ -184,6 +219,11 @@ sudo certbot --nginx -d your-domain.com
 
 > 适用场景：前端（Vue3 + Vite）已构建为 `dist`，后端 Flask 通过 Gunicorn + systemd 托管，Nginx 提供对外访问。
 
+### 3.0 两种更新策略（建议先选一种）
+
+- **标准更新（推荐）**：保持 Nginx 在线，仅重启后端并按需 reload Nginx，业务中断更短。
+- **维护窗口更新**：先停 Gunicorn + Nginx（即 3.2），适合需要改动 Nginx 主配置、证书、站点结构的场景。
+
 ### 3.1 查看服务状态
 
 为什么要做：先确认当前服务状态，避免在异常状态下直接更新。
@@ -195,16 +235,18 @@ sudo systemctl is-active mywebsite-backend
 
 用途：确认服务是否已启动、是否异常退出。
 
-### 3.2 停止后端服务
+### 3.2 停止 Gunicorn 与 Nginx 服务
 
-为什么要做：更新后端代码前先停服务，避免更新过程中请求命中不完整代码。
+为什么要做：用于“维护窗口更新”场景，更新期间先停后端与网关服务，避免请求命中不完整代码或旧配置。
 
 ```bash
 sudo systemctl stop mywebsite-backend
+sudo systemctl stop nginx
 sudo systemctl status mywebsite-backend --no-pager
+sudo systemctl status nginx --no-pager
 ```
 
-用途：确保 Flask/Gunicorn 进程已停止，再执行代码替换。
+用途：确保 Gunicorn 与 Nginx 都已停止，再执行代码与配置替换。
 
 ### 3.3 更新后端代码
 
@@ -272,22 +314,55 @@ sudo journalctl -u mywebsite-backend -f
 
 用途：查看最近日志与实时日志，快速定位部署或运行错误。
 
-### 3.8 Nginx 相关说明（简要）
+### 3.8 配置 Nginx 文件并生效
 
-为什么要做：只有修改了 Nginx 配置时才需要 reload，使配置生效且不中断服务。
+为什么要做：当你更新反向代理、静态目录或域名配置时，需要先修改配置文件再让服务生效。
 
 ```bash
+sudo cp /var/www/MyWebsiteV1.1/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
+sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
+# 如需人工修改，编辑该文件：
+sudo nano /etc/nginx/sites-available/mywebsite
 sudo nginx -t
 sudo systemctl reload nginx
+# 若此前执行过 stop，可改为启动：
+sudo systemctl start nginx
 ```
 
-用途：先校验配置，再平滑重载。
+用途：先配置/修改 Nginx 文件并校验语法，再 reload（或 start）使配置生效。
 
 ### 3.9 常见问题
 
 - 修改代码后未生效：通常是忘记重启后端服务，执行 `sudo systemctl restart mywebsite-backend`。  
 - 前端更新无变化：通常是未重新构建，执行 `npm run build` 并重新覆盖 `dist`。  
 - 权限问题：若出现 `Permission denied`，检查部署用户对 `/var/www/MyWebsiteV1.1` 与 `/var/www/mywebsite-frontend` 的目录权限。
+
+### 3.10 更新后验收清单（可直接执行）
+
+```bash
+# 1) 服务状态
+sudo systemctl is-active mywebsite-backend
+sudo systemctl is-active nginx
+
+# 2) Nginx 配置语法
+sudo nginx -t
+
+# 3) 后端 API 健康检查
+curl http://127.0.0.1:5000/api/programs
+
+# 4) 对外站点检查
+curl -I http://your-domain.com
+```
+
+通过标准：
+
+- `is-active` 返回 `active`
+- `nginx -t` 显示 `syntax is ok` / `test is successful`
+- API 返回 JSON 且无 5xx
+- 站点返回 `200`（或预期的 30x 跳转）
+
+说明：以上 API 健康检查基于默认 Gunicorn 绑定 `127.0.0.1:5000`（见 `deploy/gunicorn.conf.py`）。  
+若你改为 Unix Socket 或其他端口，请将健康检查地址替换为你的实际绑定目标。
 
 ---
 
