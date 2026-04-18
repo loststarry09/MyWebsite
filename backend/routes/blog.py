@@ -64,6 +64,10 @@ def _parse_blog_id(blog_id: str) -> int | None:
         return None
 
 
+def _invalid_blog_id_response():
+    return jsonify({"error": "invalid_id", "message": "Blog ID must be a valid integer"}), 400
+
+
 @blog_bp.get("/blogs")
 def list_blogs():
     blogs = Blog.query.order_by(Blog.created_at.desc(), Blog.id.desc()).all()
@@ -83,9 +87,9 @@ def get_blog_by_query():
 
     blog_pk = _parse_blog_id(blog_id)
     if blog_pk is None:
-        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+        return _invalid_blog_id_response()
 
-    blog = Blog.query.get(blog_pk)
+    blog = db.session.get(Blog, blog_pk)
     if blog is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
     return jsonify(_serialize_blog(blog))
@@ -95,9 +99,9 @@ def get_blog_by_query():
 def get_blog(blog_id: str):
     blog_pk = _parse_blog_id(blog_id)
     if blog_pk is None:
-        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+        return _invalid_blog_id_response()
 
-    blog = Blog.query.get(blog_pk)
+    blog = db.session.get(Blog, blog_pk)
     if blog is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
@@ -138,9 +142,9 @@ def create_blog():
 def update_blog(blog_id: str):
     blog_pk = _parse_blog_id(blog_id)
     if blog_pk is None:
-        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+        return _invalid_blog_id_response()
 
-    blog = Blog.query.get(blog_pk)
+    blog = db.session.get(Blog, blog_pk)
     if blog is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
@@ -184,9 +188,9 @@ def update_blog(blog_id: str):
 def delete_blog(blog_id: str):
     blog_pk = _parse_blog_id(blog_id)
     if blog_pk is None:
-        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+        return _invalid_blog_id_response()
 
-    blog = Blog.query.get(blog_pk)
+    blog = db.session.get(Blog, blog_pk)
     if blog is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
@@ -196,5 +200,5 @@ def delete_blog(blog_id: str):
         db.session.commit()
     except IntegrityError:
         db.session.rollback()
-        return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
+        return jsonify({"error": "persist_failed", "message": "博客删除失败，请稍后重试"}), 500
     return jsonify({"deleted": True, "blog": deleted})
