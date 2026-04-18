@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen bg-[#F7F5F2] text-gray-800 transition-colors duration-300 dark:bg-gray-900 dark:text-gray-100">
-    <header class="mx-auto flex max-w-4xl gap-4 px-6 py-6 text-sm">
+    <header class="mx-auto flex max-w-4xl gap-4 px-6 py-6 text-base">
       <RouterLink to="/" class="transition-colors duration-200 hover:text-stone-600 hover:underline dark:hover:text-stone-300">首页</RouterLink>
       <RouterLink to="/blog" class="transition-colors duration-200 hover:text-stone-600 hover:underline dark:hover:text-stone-300">博客</RouterLink>
       <RouterLink to="/programs" class="transition-colors duration-200 hover:text-stone-600 hover:underline dark:hover:text-stone-300">我的程序</RouterLink>
