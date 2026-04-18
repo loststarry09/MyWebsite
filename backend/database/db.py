@@ -13,4 +13,6 @@ def init_db(app: Flask) -> None:
     db.init_app(app)
 
     with app.app_context():
+        import models  # noqa: F401
+
         db.create_all()
