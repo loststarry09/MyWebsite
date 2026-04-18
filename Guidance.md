@@ -12,6 +12,7 @@
 - 数据库存放：`/home/admin/program/MyWebsite/database/`
 - 日志目录：`/home/admin/program/MyWebsite/logs/`
 - 前端静态产物：`/home/admin/program/MyWebsite/frontend-dist/`
+- 上传文件目录：`/home/admin/program/MyWebsite/uploads/`
 
 > 文档中涉及源码路径时，统一使用 `/home/admin/program/MyWebsite/code/`，不再使用旧的 `/path/to/MyWebsite/` 或 `/var/www/...` 写法。
 
@@ -39,12 +40,13 @@
 
 ### 2.2 服务器部署物理拓扑
 
-工作区采用四目录平级解耦：
+工作区采用五目录平级解耦：
 
 - `code/`：仅存放 Git 管理的源代码与部署脚本
 - `database/`：仅存放 SQLite 数据文件（`blog.db`）
 - `logs/`：仅存放 Gunicorn/应用运行日志
 - `frontend-dist/`：仅存放前端构建产物（Nginx 直接挂载）
+- `uploads/`：仅存放用户上传图片（Nginx 直出，绕过 Flask）
 
 关键收益：
 
@@ -138,7 +140,32 @@ curl -I http://your-domain.com
 
 ---
 
-## 八、常见问题速查
+## 八、Nginx 上传静态映射（生产）
+
+在 `/etc/nginx/sites-available/mywebsite` 的 `server { ... }` 中新增：
+
+```nginx
+location /uploads/ {
+    alias /home/admin/program/MyWebsite/uploads/;
+    expires 30d;
+    add_header Cache-Control "public, max-age=2592000, immutable";
+    access_log off;
+    try_files $uri =404;
+}
+```
+
+并执行：
+
+```bash
+mkdir -p /home/admin/program/MyWebsite/uploads
+chmod 755 /home/admin/program/MyWebsite/uploads
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+---
+
+## 九、常见问题速查
 
 - `Address already in use`
   - `sudo fuser -k 5000/tcp`
@@ -154,12 +181,14 @@ curl -I http://your-domain.com
 
 - Nginx 读不到静态文件
   - 确认已执行：`chmod +x /home/admin /home/admin/program /home/admin/program/MyWebsite`
+  - 上传图片直出失败时，核对 `location /uploads/` 的 `alias` 路径是否带尾部 `/`
+  - 核对 `/home/admin/program/MyWebsite/uploads` 目录权限与文件可读权限
 
 ---
 
-## 九、维护原则
+## 十、维护原则
 
-1. 坚持 `code/database/logs/frontend-dist` 四目录物理隔离。
+1. 坚持 `code/database/logs/frontend-dist/uploads` 五目录物理隔离。
 2. Markdown 渲染逻辑统一在 `frontend/src/utils/markdown.js` 维护，禁止页面私有分叉实现。
 3. 禁止将 SQLite 放回源码目录。
 4. 生产变更后必须执行 `daemon-reload + restart + status + curl` 完整验收。
