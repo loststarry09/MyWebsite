@@ -28,6 +28,7 @@ pip install -r requirements.txt
 $env:APP_DEBUG="1"
 $env:APP_HOST="127.0.0.1"
 $env:APP_PORT="5000"
+$env:SQLALCHEMY_DATABASE_URI="sqlite:///blog.db"
 python app.py
 ```
 
@@ -49,7 +50,7 @@ npm run dev
 
 ```bash
 sudo apt update
-sudo apt install -y python3 python3-venv python3-pip nodejs npm nginx
+sudo apt install -y git python3 python3-venv python3-pip nodejs npm nginx rsync psmisc
 ```
 
 > 建议 Python 3.10+，Node 18+。
@@ -61,7 +62,7 @@ cd /path/to/MyWebsite/backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
-APP_DEBUG=1 APP_HOST=0.0.0.0 APP_PORT=5000 python app.py
+APP_DEBUG=1 APP_HOST=0.0.0.0 APP_PORT=5000 SQLALCHEMY_DATABASE_URI=sqlite:///blog.db python app.py
 ```
 
 后端校验：
@@ -92,46 +93,52 @@ npm run dev
 
 ## 2. Ubuntu 24.04 生产部署（Gunicorn + Nginx + systemd）
 
-下面以：
+### 前置说明（强烈建议先读）
 
-- 项目目录：`/var/www/MyWebsite`
-- 前端静态目录：`/var/www/mywebsite-frontend`
-- 域名：`your-domain.com`
+本项目采用 **用户目录部署方案（User-level Deployment）**，统一放在 `/home/admin/program/` 下，目标是彻底规避 Web 目录部署时常见的 `www-data` 与普通用户权限冲突。
 
-为例，请按实际替换。
+本文示例统一使用：
 
-### 2.0 首部署前检查清单（建议逐项确认）
+- 代码目录：`/home/admin/program/MyWebsite`
+- 前端静态目录：`/home/admin/program/mywebsite-frontend`
+- 数据库目录：`/home/admin/program/MyWebsiteDatabase`
+- 服务运行身份：`admin`
+
+> `admin` 为示例用户名，请按你的实际用户名替换。
+
+### 2.0 首部署前检查清单
 
 - 已将域名 DNS 指向服务器公网 IP（若暂时无域名，可先用服务器 IP 验证 HTTP）
-- 服务器已安装必要工具：`git`、`python3-venv`、`nodejs`、`npm`、`nginx`、`rsync`
+- 服务器已安装必要工具：`git`、`python3-venv`、`nodejs`、`npm`、`nginx`、`rsync`、`psmisc`
 - 防火墙放行 Web 端口（如启用 UFW）：
-  - 若 UFW 尚未启用，先确认不会阻断 SSH，再执行：
-    - `sudo ufw allow OpenSSH`
-    - `sudo ufw enable`
 
 ```bash
+sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw status
 ```
 
-- 规划并确认部署目录（本文默认）：
-  - 项目源码：`/var/www/MyWebsite`
-  - 前端静态目录：`/var/www/mywebsite-frontend`
-
-### 2.1 拉取代码并安装依赖
+### 2.1 拉取代码与依赖（普通用户，无 sudo clone/chown）
 
 ```bash
-sudo mkdir -p /var/www
-cd /var/www
-sudo git clone <your-repo-url> MyWebsite
-sudo chown -R $USER:$USER /var/www/MyWebsite
+mkdir -p /home/admin/program
+cd /home/admin/program
+git clone <your-repo-url> MyWebsite
+```
+
+创建数据库隔离目录：
+
+```bash
+mkdir -p /home/admin/program/MyWebsiteDatabase
+chmod 775 /home/admin/program/MyWebsiteDatabase
+chgrp admin /home/admin/program/MyWebsiteDatabase
 ```
 
 后端依赖：
 
 ```bash
-cd /var/www/MyWebsite/backend
+cd /home/admin/program/MyWebsite/backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -141,19 +148,20 @@ pip install -r requirements.txt
 前端构建：
 
 ```bash
-cd /var/www/MyWebsite/frontend
+cd /home/admin/program/MyWebsite/frontend
 npm ci
 npm run build
-sudo mkdir -p /var/www/mywebsite-frontend
-sudo rsync -av --delete dist/ /var/www/mywebsite-frontend/
+mkdir -p /home/admin/program/mywebsite-frontend
+rsync -av --delete dist/ /home/admin/program/mywebsite-frontend/
 ```
 
 ### 2.2 手动验证 Gunicorn
 
 ```bash
-cd /var/www/MyWebsite/backend
+cd /home/admin/program/MyWebsite/backend
 source .venv/bin/activate
-APP_DEBUG=0 .venv/bin/gunicorn -c /var/www/MyWebsite/deploy/gunicorn.conf.py wsgi:app
+APP_DEBUG=0 SQLALCHEMY_DATABASE_URI="sqlite:////home/admin/program/MyWebsiteDatabase/blog.db" \
+.venv/bin/gunicorn -c /home/admin/program/MyWebsite/deploy/gunicorn.conf.py wsgi:app
 ```
 
 新开终端测试：
@@ -164,23 +172,29 @@ curl http://127.0.0.1:5000/api/programs
 
 ### 2.3 配置 systemd（托管 Gunicorn）
 
-复制模板、修正路径并启用：
+复制模板并修改服务文件：
 
 ```bash
-sudo cp /var/www/MyWebsite/deploy/mywebsite-backend.service /etc/systemd/system/mywebsite-backend.service
-# 模板默认是 /var/www/MyWebsite/，若你的实际目录不同再执行替换（本文示例：/var/www/MyWebsite/）
-sudo grep -n '/var/www/MyWebsite' /etc/systemd/system/mywebsite-backend.service
-# 仅当你的部署目录不是 /var/www/MyWebsite/ 时执行：
-# sudo sed -i 's#/var/www/MyWebsite/#/var/www/<your-project-dir>/#g' /etc/systemd/system/mywebsite-backend.service
-# 确认路径已替换正确
-sudo grep -E 'WorkingDirectory|ExecStart' /etc/systemd/system/mywebsite-backend.service
+sudo cp /home/admin/program/MyWebsite/deploy/mywebsite-backend.service /etc/systemd/system/mywebsite-backend.service
+sudo nano /etc/systemd/system/mywebsite-backend.service
+```
 
-# 让 www-data 具备后端运行所需读写权限（含 SQLite 与 data.json）
-sudo chown -R www-data:www-data /var/www/MyWebsite/backend
+请重点确认以下配置：
 
+- `User=admin`
+- `Group=admin`
+- `WorkingDirectory=/home/admin/program/MyWebsite/backend`
+- `ExecStart=/home/admin/program/MyWebsite/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/deploy/gunicorn.conf.py wsgi:app`
+- **`Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsiteDatabase/blog.db"`**
+
+> **注意：SQLite 绝对路径 URI 必须是 `sqlite:////`（4 个斜杠）**。少一个斜杠会导致 `unable to open database file` 或路径解析错误。
+
+启用并启动服务：
+
+```bash
 sudo systemctl daemon-reload
 sudo systemctl enable mywebsite-backend
-sudo systemctl start mywebsite-backend
+sudo systemctl restart mywebsite-backend
 sudo systemctl status mywebsite-backend --no-pager
 ```
 
@@ -194,14 +208,23 @@ sudo journalctl -u mywebsite-backend -f
 ### 2.4 配置 Nginx
 
 ```bash
-sudo cp /var/www/MyWebsite/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
+sudo cp /home/admin/program/MyWebsite/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
 sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
-# 建议关闭默认站点，避免冲突
 sudo rm -f /etc/nginx/sites-enabled/default
+```
 
-# 按需修改 server_name、root 等参数
+为保证 Nginx（`www-data`）可穿透用户目录访问前端静态文件，请执行：
+
+```bash
+sudo chmod +x /home/admin /home/admin/program
+```
+
+> 说明：目录的执行权限（`x`）用于“可进入目录”，没有该权限时即使文件本身可读，Nginx 也无法访问。
+
+按需修改站点配置并生效：
+
+```bash
 sudo nano /etc/nginx/sites-available/mywebsite
-
 sudo nginx -t
 sudo systemctl enable nginx
 sudo systemctl reload nginx
@@ -218,204 +241,95 @@ sudo certbot --nginx -d your-domain.com
 
 ## 3. 项目更新与服务重启指南（Ubuntu 24.04）
 
-> 适用场景：前端（Vue3 + Vite）已构建为 `dist`，后端 Flask 通过 Gunicorn + systemd 托管，Nginx 提供对外访问。
-
-### 3.0 两种更新策略（建议先选一种）
-
-- **标准更新（推荐）**：保持 Nginx 在线，仅重启后端并按需 reload Nginx，业务中断更短。
-- **维护窗口更新**：先停 Gunicorn + Nginx（即 3.2），适合需要改动 Nginx 主配置、证书、站点结构的场景。
-
-### 3.1 查看服务状态
-
-为什么要做：先确认当前服务状态，避免在异常状态下直接更新。
+### 3.1 更新后端
 
 ```bash
-sudo systemctl status mywebsite-backend --no-pager
-sudo systemctl is-active mywebsite-backend
-```
-
-用途：确认服务是否已启动、是否异常退出。
-
-### 3.2 停止 Gunicorn 与 Nginx 服务
-
-为什么要做：用于“维护窗口更新”场景，更新期间先停后端与网关服务，避免请求命中不完整代码或旧配置。
-
-```bash
-sudo systemctl stop mywebsite-backend
-sudo systemctl stop nginx
-sudo systemctl status mywebsite-backend --no-pager
-sudo systemctl status nginx --no-pager
-```
-
-用途：确保 Gunicorn 与 Nginx 都已停止，再执行代码与配置替换。
-
-### 3.3 更新后端代码
-
-为什么要做：让服务启动时加载最新后端逻辑与依赖。
-
-```bash
-cd /var/www/MyWebsite
+cd /home/admin/program/MyWebsite
 git pull
-cd /var/www/MyWebsite/backend
+cd /home/admin/program/MyWebsite/backend
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-用途：更新 `backend` 目录并同步依赖。  
-注意：若非 `git pull`，请直接替换 `/var/www/MyWebsite/backend`；同时确认部署用户对该目录有读写权限。
-
-### 3.4 更新前端代码（重要）
-
-为什么要做：前端部署的是构建产物 `dist`，不重新构建不会生效。
+### 3.2 更新前端
 
 ```bash
-cd /path/to/MyWebsite/frontend
+cd /home/admin/program/MyWebsite/frontend
 npm ci
 npm run build
+rsync -av --delete /home/admin/program/MyWebsite/frontend/dist/ /home/admin/program/mywebsite-frontend/
 ```
 
-```bash
-rsync -av --delete /var/www/MyWebsite/frontend/dist/ /var/www/mywebsite-frontend/
-```
-
-用途：先本地生成最新 `dist`，再覆盖服务器静态目录。  
-注意：`--delete` 会删除目标目录中源目录不存在的文件，执行前请确认源路径为正确的 `dist/`。  
-重点：只改源码但不执行 `npm run build`，线上页面不会更新。
-
-### 3.5 重新启动服务
-
-为什么要做：让 systemd 重新拉起 Gunicorn，加载更新后的代码与依赖。
+### 3.3 重启并验证
 
 ```bash
+sudo systemctl daemon-reload
 sudo systemctl restart mywebsite-backend
 sudo systemctl status mywebsite-backend --no-pager
-```
-
-用途：推荐 `restart`，一次完成停止与启动，减少遗漏风险。
-
-### 3.6 验证更新是否生效
-
-为什么要做：确认前后端都已切换到新版本。
-
-```bash
 curl http://127.0.0.1:5000/api/programs
 curl -I http://your-domain.com
 ```
 
-用途：`curl` 验证 API 与站点响应；同时在浏览器访问首页与关键页面确认前端更新。
-
-### 3.7 查看日志（排查问题）
-
-为什么要做：当服务启动失败、接口报错时，日志是第一定位入口。
+### 3.4 日志排查
 
 ```bash
 sudo journalctl -u mywebsite-backend -n 100 --no-pager
 sudo journalctl -u mywebsite-backend -f
 ```
 
-用途：查看最近日志与实时日志，快速定位部署或运行错误。
-
-### 3.8 配置 Nginx 文件并生效
-
-为什么要做：当你更新反向代理、静态目录或域名配置时，需要先修改配置文件再让服务生效。
-
-```bash
-sudo cp /var/www/MyWebsite/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
-sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
-# 如需人工修改，编辑该文件：
-sudo nano /etc/nginx/sites-available/mywebsite
-sudo nginx -t
-sudo systemctl reload nginx
-# 若此前执行过 stop，可改为启动：
-sudo systemctl start nginx
-```
-
-用途：先配置/修改 Nginx 文件并校验语法，再 reload（或 start）使配置生效。
-
-### 3.9 常见问题
-
-- 修改代码后未生效：通常是忘记重启后端服务，执行 `sudo systemctl restart mywebsite-backend`。  
-- 前端更新无变化：通常是未重新构建，执行 `npm run build` 并重新覆盖 `dist`。  
-- 权限问题：若出现 `Permission denied`，检查部署用户对 `/var/www/MyWebsite` 与 `/var/www/mywebsite-frontend` 的目录权限。
-
-### 3.10 更新后验收清单（可直接执行）
-
-```bash
-# 1) 服务状态
-sudo systemctl is-active mywebsite-backend
-sudo systemctl is-active nginx
-
-# 2) Nginx 配置语法
-sudo nginx -t
-
-# 3) 后端 API 健康检查
-curl http://127.0.0.1:5000/api/programs
-
-# 4) 对外站点检查
-curl -I http://your-domain.com
-```
-
-通过标准：
-
-- `is-active` 返回 `active`
-- `nginx -t` 显示 `syntax is ok` / `test is successful`
-- API 返回 JSON 且无 5xx
-- 站点返回 `200`（或预期的 30x 跳转）
-
-说明：以上 API 健康检查基于默认 Gunicorn 绑定 `127.0.0.1:5000`（见 `deploy/gunicorn.conf.py`）。  
-若你改为 Unix Socket 或其他端口，请将健康检查地址替换为你的实际绑定目标。
-
 ---
 
 ## 4. 项目里已做的部署/调试适配优化
 
-1. **后端环境化启动参数**
-   - `APP_HOST`、`APP_PORT`、`APP_DEBUG` 可配置
-   - 本地调试和生产部署共用同一套应用代码
-
-2. **后端反向代理适配**
-   - 启用 `ProxyFix`，更好处理 Nginx 转发后的 `X-Forwarded-*` 头
-
-3. **新增 Gunicorn 入口与配置模板**
-   - `backend/wsgi.py`
-   - `deploy/gunicorn.conf.py`
-
-4. **新增 systemd 与 Nginx 模板**
-   - `deploy/mywebsite-backend.service`
-   - `deploy/mywebsite.nginx.conf`
-
-5. **前端本地联调优化**
-   - Vite 增加 `/api` 开发代理
-   - 继续使用相对路径请求，生产走同域反向代理
-
-6. **博客时间显示时区修正**
-   - 后端博客时间以 UTC（`...Z`）保存
-   - 前端展示时转换为浏览器本地时区，避免出现创建时间少 8 小时等偏差
+1. 后端环境化启动参数：`APP_HOST`、`APP_PORT`、`APP_DEBUG`、`SQLALCHEMY_DATABASE_URI`
+2. 反向代理适配：启用 `ProxyFix`
+3. Gunicorn 入口与配置：`backend/wsgi.py`、`deploy/gunicorn.conf.py`
+4. systemd 与 Nginx 模板：`deploy/mywebsite-backend.service`、`deploy/mywebsite.nginx.conf`
+5. 前端联调代理：`/api` 通过 Vite/Nginx 转发
+6. 博客时间统一 UTC 存储 + 前端本地时区展示
 
 ---
 
 ## 5. 常见故障排查
 
-### 5.1 前端请求 404/502
+### 5.1 报错 `[Errno 98] Address already in use`
 
-- 确认后端是否在本机 `127.0.0.1:5000` 运行
-- 确认 Nginx `location /api/` 生效并已 reload
-- 通过 `curl http://127.0.0.1:5000/api/programs` 先验证后端自身
+端口 5000 被遗留 gunicorn 进程占用：
 
-### 5.2 页面空白或路由刷新 404
+```bash
+sudo fuser -k 5000/tcp
+```
 
-- 确认 Nginx 对 `/` 使用：`try_files $uri $uri/ /index.html;`
+然后重启服务：
 
-### 5.3 后端更新不生效
+```bash
+sudo systemctl restart mywebsite-backend
+```
 
-- 执行 `sudo systemctl restart mywebsite-backend`
-- 查看日志 `sudo journalctl -u mywebsite-backend -f`
+### 5.2 报错 `unable to open database file`
 
-### 5.4 前端更新不生效
+常见原因：`SQLALCHEMY_DATABASE_URI` 写错，尤其是斜杠数量错误。
 
-- 重新构建并覆盖静态目录：
-  - `npm run build`
-  - `rsync -av --delete dist/ /var/www/mywebsite-frontend/`
+正确写法（绝对路径，4 个斜杠）：
+
+```bash
+sqlite:////home/admin/program/MyWebsiteDatabase/blog.db
+```
+
+请同时检查：
+
+- `MyWebsiteDatabase` 目录是否存在
+- 运行用户（`admin`）是否可写该目录
+
+### 5.3 前端更新不生效
+
+- 忘记执行 `npm run build`
+- 忘记同步 `dist` 到 `/home/admin/program/mywebsite-frontend`
+
+### 5.4 API 404/502
+
+- 检查 `mywebsite-backend` 服务状态
+- 检查 Nginx 的 `/api/` 反向代理是否正确并已 `reload`
 
 ---
 
