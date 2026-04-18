@@ -14,6 +14,7 @@ db = SQLAlchemy()
 DATABASE_URI = "sqlite:////var/www/MyWebsiteDatabase/blog.db"
 EXPECTED_DB_PATH = Path("/var/www/MyWebsiteDatabase/blog.db")
 LEGACY_DB_PATH = Path("/var/www/MyWebsite/backend/blog.db")
+LEGACY_DB_DIR = LEGACY_DB_PATH.parent
 MIGRATION_MARKER_KEY = "json_to_sqlite_blog_migration_v1"
 LEGACY_DATA_JSON_PATH = Path(__file__).resolve().parents[1] / "data.json"
 LEGACY_BLOGS_JSON_PATH = Path(__file__).resolve().parents[1] / "blogs.json"
@@ -148,7 +149,7 @@ def _assert_database_uri_is_safe(database_uri: str) -> None:
     if sqlite_path is None:
         return
     normalized = sqlite_path.resolve()
-    if normalized == LEGACY_DB_PATH or "/var/www/MyWebsite/backend/" in normalized.as_posix():
+    if normalized == LEGACY_DB_PATH or normalized.is_relative_to(LEGACY_DB_DIR):
         raise RuntimeError(f"Fatal: legacy SQLite path detected: {normalized}")
     if normalized != EXPECTED_DB_PATH:
         raise RuntimeError(f"Fatal: SQLite path mismatch: {normalized}, expected: {EXPECTED_DB_PATH}")
@@ -157,6 +158,8 @@ def _assert_database_uri_is_safe(database_uri: str) -> None:
 def init_db(app: Flask) -> None:
     """初始化 SQLite 与 SQLAlchemy，并自动建库建表。"""
     database_uri = os.getenv("SQLALCHEMY_DATABASE_URI", DATABASE_URI).strip()
+    if not database_uri:
+        raise RuntimeError("Fatal: SQLALCHEMY_DATABASE_URI cannot be empty.")
     sqlite_path = _resolve_sqlite_db_path(database_uri)
     if sqlite_path is not None:
         app.logger.info(f"Resolved SQLite absolute path: {sqlite_path}")
