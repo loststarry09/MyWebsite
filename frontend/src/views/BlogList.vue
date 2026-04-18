@@ -37,8 +37,8 @@ async function fetchBlogs() {
   loading.value = true
   loadError.value = ''
   try {
-    const { data } = await axios.get('/api/blogs')
-    blogs.value = Array.isArray(data) ? data : []
+    const { data } = await axios.get('/api/blog')
+    blogs.value = Array.isArray(data?.data) ? data.data : []
   } catch (error) {
     loadError.value = '博客列表加载失败，请稍后重试。'
   } finally {

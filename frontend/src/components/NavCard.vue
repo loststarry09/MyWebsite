@@ -35,11 +35,11 @@ const props = defineProps({
     :target="external ? '_blank' : undefined"
     :rel="external ? 'noopener noreferrer' : undefined"
     :class="[
-      'block rounded-xl border border-stone-200 bg-white p-6 text-left shadow-sm dark:border-stone-700 dark:bg-stone-800',
+      'block rounded-xl border border-stone-200 bg-white p-7 text-left shadow-sm dark:border-stone-700 dark:bg-stone-800',
       animated ? 'transition duration-300 hover:-translate-y-0.5 hover:shadow' : '',
     ]"
   >
-    <h2 class="text-lg font-medium text-stone-800 transition-colors duration-300 dark:text-stone-100">{{ title }}</h2>
-    <p v-if="subtitle" class="mt-2 text-sm text-stone-500 transition-colors duration-300 dark:text-stone-400">{{ subtitle }}</p>
+    <h2 class="text-xl font-medium text-stone-800 transition-colors duration-300 dark:text-stone-100">{{ title }}</h2>
+    <p v-if="subtitle" class="mt-3 text-base text-stone-500 transition-colors duration-300 dark:text-stone-400">{{ subtitle }}</p>
   </component>
 </template>

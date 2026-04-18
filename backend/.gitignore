@@ -1,2 +1,6 @@
 __pycache__/
 *.pyc
+site.db
+blog.db
+
+.venv/

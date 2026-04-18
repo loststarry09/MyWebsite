@@ -1,12 +1,12 @@
 <template>
   <div
-    class="ml-auto inline-flex rounded-lg border border-gray-300 bg-white/60 p-1 shadow-sm transition-colors duration-300 dark:border-gray-700 dark:bg-gray-800/70"
+    class="ml-auto inline-flex rounded-lg border border-gray-300 bg-white/60 p-1.5 shadow-sm transition-colors duration-300 dark:border-gray-700 dark:bg-gray-800/70"
   >
     <button
       v-for="option in options"
       :key="option.value"
       type="button"
-      class="rounded-md px-2.5 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 active:scale-95 dark:focus-visible:ring-stone-500"
+      class="rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-stone-400 active:scale-95 dark:focus-visible:ring-stone-500"
       :aria-pressed="theme === option.value"
       :title="`切换到${option.label}模式`"
       :class="
