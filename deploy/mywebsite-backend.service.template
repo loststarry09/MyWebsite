@@ -1,0 +1,31 @@
+[Unit]
+Description=MyWebsite Flask backend (Gunicorn)
+After=network.target
+
+[Service]
+# 建议使用 www-data（Nginx 同用户）或你的实际运行用户，并保证其可写 SQLite 目录。
+User=www-data
+Group=www-data
+
+# 按你的实际部署目录修改：
+WorkingDirectory=/var/www/MyWebsite/backend
+
+Environment="APP_DEBUG=0"
+Environment="PYTHONUNBUFFERED=1"
+Environment="SQLALCHEMY_DATABASE_URI=sqlite:////var/www/MyWebsiteDatabase/blog.db"
+
+# 按你的实际部署目录与虚拟环境路径修改：
+ExecStart=/var/www/MyWebsite/backend/.venv/bin/gunicorn -c /var/www/MyWebsite/deploy/gunicorn.conf.py wsgi:app
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+
+# 部署提示：
+# 1) 复制到 /etc/systemd/system/mywebsite-backend.service 后，按需修改 User/Group/WorkingDirectory/ExecStart。
+# 2) 修改后执行：
+#    sudo systemctl daemon-reload
+#    sudo systemctl enable mywebsite-backend
+#    sudo systemctl restart mywebsite-backend
+#    sudo systemctl status mywebsite-backend --no-pager
