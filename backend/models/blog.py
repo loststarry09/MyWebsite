@@ -49,6 +49,3 @@ class BlogTag(db.Model):
 
     blog_id = db.Column(db.Integer, db.ForeignKey("blogs.id"), primary_key=True)
     tag_id = db.Column(db.Integer, db.ForeignKey("tags.id"), primary_key=True)
-
-    blog = db.relationship("Blog")
-    tag = db.relationship("Tag")
