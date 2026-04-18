@@ -1,17 +1,21 @@
+import logging
+from functools import wraps
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import SQLAlchemyError
 
 from database.db import db
 from models.blog import Blog, Tag
 
 blog_bp = Blueprint("blog", __name__)
+logger = logging.getLogger(__name__)
 DEFAULT_PAGE = 1
 DEFAULT_PAGE_SIZE = 10
 MAX_PAGE = 10000
 MAX_PAGE_SIZE = 100
+MAX_CONTENT_LENGTH = 20000
 
 
 def _normalize_tags(tags):
@@ -70,7 +74,46 @@ def _parse_blog_id(blog_id: str) -> int | None:
 
 
 def _invalid_blog_id_response():
-    return jsonify({"error": "invalid_id", "message": "Blog ID must be a valid integer"}), 400
+    return _error_response("invalid_id", "Blog ID must be a valid integer", 400, code="INVALID_ID")
+
+
+def _error_response(error: str, message: str, status: int, code: str | None = None):
+    payload = {"error": error, "message": message}
+    if code:
+        payload["code"] = code
+    return jsonify(payload), status
+
+
+def _safe_route(handler):
+    @wraps(handler)
+    def wrapper(*args, **kwargs):
+        try:
+            return handler(*args, **kwargs)
+        except SQLAlchemyError:
+            db.session.rollback()
+            logger.exception("Database error on %s", request.path)
+            return _error_response("db_error", "数据库操作失败，请稍后重试", 500, code="DATABASE_ERROR")
+        except Exception:
+            logger.exception("Unhandled error on %s", request.path)
+            return _error_response("internal_error", "服务器内部错误", 500, code="INTERNAL_ERROR")
+
+    return wrapper
+
+
+def _validate_title(value):
+    if not isinstance(value, str) or not value.strip():
+        return "字段 title 不能为空"
+    return None
+
+
+def _validate_content(value):
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        return "字段 content 必须是字符串"
+    if len(value) > MAX_CONTENT_LENGTH:
+        return f"字段 content 长度不能超过 {MAX_CONTENT_LENGTH} 个字符"
+    return None
 
 
 def _parse_bool_arg(name: str) -> bool | None:
@@ -101,6 +144,7 @@ def _parse_int_arg(name: str, default: int, minimum: int, maximum: int) -> int:
 
 
 @blog_bp.get("/blogs")
+@_safe_route
 def list_blogs():
     tag = request.args.get("tag", "").strip()
     keyword = request.args.get("keyword", "").strip()
@@ -123,20 +167,22 @@ def list_blogs():
 
 
 @blog_bp.get("/blog")
+@_safe_route
 def list_blogs_compat():
     return list_blogs()
 
 
 @blog_bp.get("/blog/")
+@_safe_route
 def get_blog_by_query():
     blog_id = request.args.get("id", "").strip()
     if not blog_id:
-        return jsonify(
-            {
-                "error": "missing_blog_id",
-                "message": "请通过查询参数 id 提供博客 ID，例如 /api/blog/?id=welcome-blog",
-            }
-        ), 400
+        return _error_response(
+            "missing_blog_id",
+            "请通过查询参数 id 提供博客 ID，例如 /api/blog/?id=welcome-blog",
+            400,
+            code="MISSING_BLOG_ID",
+        )
 
     blog_pk = _parse_blog_id(blog_id)
     if blog_pk is None:
@@ -144,11 +190,12 @@ def get_blog_by_query():
 
     blog = db.session.get(Blog, blog_pk)
     if blog is None:
-        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+        return _error_response("not_found", f"Blog '{blog_id}' not found", 404, code="NOT_FOUND")
     return jsonify(_serialize_blog(blog))
 
 
 @blog_bp.get("/blog/<blog_id>")
+@_safe_route
 def get_blog(blog_id: str):
     blog_pk = _parse_blog_id(blog_id)
     if blog_pk is None:
@@ -156,7 +203,7 @@ def get_blog(blog_id: str):
 
     blog = db.session.get(Blog, blog_pk)
     if blog is None:
-        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+        return _error_response("not_found", f"Blog '{blog_id}' not found", 404, code="NOT_FOUND")
 
     Blog.query.filter(Blog.id == blog_pk).update({"views": Blog.views + 1}, synchronize_session=False)
     db.session.commit()
@@ -165,40 +212,47 @@ def get_blog(blog_id: str):
 
 
 @blog_bp.post("/blog")
+@_safe_route
 def create_blog():
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
-        return jsonify({"error": "invalid_json", "message": "请求体必须是 JSON 对象"}), 400
+        return _error_response("invalid_json", "请求体必须是 JSON 对象", 400, code="INVALID_JSON")
 
     title = payload.get("title", "")
-    if not isinstance(title, str) or not title.strip():
-        return jsonify({"error": "validation_error", "message": "字段 title 不能为空"}), 400
+    title_error = _validate_title(title)
+    if title_error:
+        return _error_response("validation_error", title_error, 400, code="VALIDATION_ERROR")
+
+    content = payload.get("content", "")
+    content_error = _validate_content(content)
+    if content_error:
+        return _error_response("validation_error", content_error, 400, code="VALIDATION_ERROR")
+    if content is None:
+        content = ""
 
     views_value = payload.get("views", 0)
     try:
         views = int(views_value or 0)
     except (ValueError, TypeError):
-        return jsonify({"error": "validation_error", "message": "字段 views 必须是数字"}), 400
+        return _error_response("validation_error", "字段 views 必须是数字", 400, code="VALIDATION_ERROR")
 
-    try:
-        blog = Blog(
-            title=title.strip(),
-            content=payload.get("content", "") if isinstance(payload.get("content"), str) else "",
-            is_favorite=bool(payload.get("isFavorite", False)),
-            is_published=bool(payload.get("isPublished", False)),
-            views=views,
-        )
-        blog.tags = _resolve_tags(payload.get("tags"))
-        db.session.add(blog)
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
+    blog = Blog(
+        title=title.strip(),
+        content=content if isinstance(content, str) else "",
+        is_favorite=bool(payload.get("isFavorite", False)),
+        is_published=bool(payload.get("isPublished", False)),
+        views=views,
+    )
+    blog.tags = _resolve_tags(payload.get("tags"))
+    db.session.add(blog)
+    db.session.commit()
+    logger.info("blog_created id=%s title=%s", blog.id, blog.title)
 
     return jsonify(_serialize_blog(blog)), 201
 
 
 @blog_bp.put("/blog/<blog_id>")
+@_safe_route
 def update_blog(blog_id: str):
     blog_pk = _parse_blog_id(blog_id)
     if blog_pk is None:
@@ -206,19 +260,23 @@ def update_blog(blog_id: str):
 
     blog = db.session.get(Blog, blog_pk)
     if blog is None:
-        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+        return _error_response("not_found", f"Blog '{blog_id}' not found", 404, code="NOT_FOUND")
 
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
-        return jsonify({"error": "invalid_json", "message": "请求体必须是 JSON 对象"}), 400
+        return _error_response("invalid_json", "请求体必须是 JSON 对象", 400, code="INVALID_JSON")
 
     if "title" in payload:
-        if not isinstance(payload["title"], str) or not payload["title"].strip():
-            return jsonify({"error": "validation_error", "message": "字段 title 不能为空"}), 400
+        title_error = _validate_title(payload["title"])
+        if title_error:
+            return _error_response("validation_error", title_error, 400, code="VALIDATION_ERROR")
         blog.title = payload["title"].strip()
 
-    if "content" in payload and isinstance(payload["content"], str):
-        blog.content = payload["content"]
+    if "content" in payload:
+        content_error = _validate_content(payload["content"])
+        if content_error:
+            return _error_response("validation_error", content_error, 400, code="VALIDATION_ERROR")
+        blog.content = payload["content"] if isinstance(payload["content"], str) else ""
 
     if "tags" in payload:
         blog.tags = _resolve_tags(payload["tags"])
@@ -233,18 +291,16 @@ def update_blog(blog_id: str):
         try:
             blog.views = int(payload["views"] or 0)
         except (TypeError, ValueError):
-            return jsonify({"error": "validation_error", "message": "字段 views 必须是数字"}), 400
+            return _error_response("validation_error", "字段 views 必须是数字", 400, code="VALIDATION_ERROR")
 
-    try:
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
+    db.session.commit()
+    logger.info("blog_updated id=%s", blog.id)
 
     return jsonify(_serialize_blog(blog))
 
 
 @blog_bp.delete("/blog/<blog_id>")
+@_safe_route
 def delete_blog(blog_id: str):
     blog_pk = _parse_blog_id(blog_id)
     if blog_pk is None:
@@ -252,13 +308,10 @@ def delete_blog(blog_id: str):
 
     blog = db.session.get(Blog, blog_pk)
     if blog is None:
-        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+        return _error_response("not_found", f"Blog '{blog_id}' not found", 404, code="NOT_FOUND")
 
-    try:
-        deleted = _serialize_blog(blog)
-        db.session.delete(blog)
-        db.session.commit()
-    except IntegrityError:
-        db.session.rollback()
-        return jsonify({"error": "persist_failed", "message": "博客删除失败，请稍后重试"}), 500
+    deleted = _serialize_blog(blog)
+    db.session.delete(blog)
+    db.session.commit()
+    logger.info("blog_deleted id=%s", blog_pk)
     return jsonify({"deleted": True, "blog": deleted})
