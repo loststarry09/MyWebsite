@@ -3,7 +3,7 @@ Description=MyWebsite Flask backend (Gunicorn)
 After=network.target
 
 [Service]
-# 建议使用实际部署用户（示例：admin），并保证其可写 SQLite 目录。
+# 建议使用实际部署用户（示例: admin），并保证其可写 SQLite 目录。
 User=admin
 Group=admin
 
@@ -23,7 +23,7 @@ RestartSec=3
 WantedBy=multi-user.target
 
 # 部署提示：
-# 1) 复制到 /etc/systemd/system/mywebsite-backend.service 后，按需修改 User/Group/WorkingDirectory/ExecStart。
+# 1) 复制到 /etc/systemd/system/mywebsite-backend.service 后, 按需修改 User/Group/WorkingDirectory/ExecStart。
 # 2) 修改后执行：
 #    sudo systemctl daemon-reload
 #    sudo systemctl enable mywebsite-backend

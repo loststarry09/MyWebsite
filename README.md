@@ -50,7 +50,7 @@ npm run dev
 
 ```bash
 sudo apt update
-sudo apt install -y git python3 python3-venv python3-pip nodejs npm nginx rsync psmisc
+sudo apt install -y git python3 python3-venv python3-pip nodejs npm nginx rsync psmisc  # psmisc 提供 fuser
 ```
 
 > 建议 Python 3.10+，Node 18+。
