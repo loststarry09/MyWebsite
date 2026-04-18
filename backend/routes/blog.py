@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy import or_
 from sqlalchemy.exc import IntegrityError
 
 from database.db import db
@@ -68,13 +69,52 @@ def _invalid_blog_id_response():
     return jsonify({"error": "invalid_id", "message": "Blog ID must be a valid integer"}), 400
 
 
+def _parse_bool_arg(name: str) -> bool | None:
+    raw = request.args.get(name)
+    if raw is None:
+        return None
+    value = raw.strip().lower()
+    if value in {"true", "1", "yes", "on"}:
+        return True
+    if value in {"false", "0", "no", "off"}:
+        return False
+    return None
+
+
+def _parse_int_arg(name: str, default: int, minimum: int, maximum: int) -> int:
+    raw = request.args.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw.strip())
+    except (TypeError, ValueError):
+        return default
+    if value < minimum:
+        return minimum
+    if value > maximum:
+        return maximum
+    return value
+
+
 @blog_bp.get("/blogs")
 def list_blogs():
     tag = request.args.get("tag", "").strip()
+    keyword = request.args.get("keyword", "").strip()
+    favorite = _parse_bool_arg("favorite")
+    page = _parse_int_arg("page", default=1, minimum=1, maximum=100000)
+    page_size = _parse_int_arg("pageSize", default=10, minimum=1, maximum=100)
+    offset = (page - 1) * page_size
+
     query = Blog.query
     if tag:
         query = query.join(Blog.tags).filter(Tag.name == tag)
-    blogs = query.order_by(Blog.created_at.desc(), Blog.id.desc()).all()
+    if keyword:
+        like_pattern = f"%{keyword}%"
+        query = query.filter(or_(Blog.title.ilike(like_pattern), Blog.content.ilike(like_pattern)))
+    if favorite is not None:
+        query = query.filter(Blog.is_favorite.is_(favorite))
+
+    blogs = query.order_by(Blog.created_at.desc(), Blog.id.desc()).offset(offset).limit(page_size).all()
     return jsonify([_serialize_blog(blog) for blog in blogs])
 
 
