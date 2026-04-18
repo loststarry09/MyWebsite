@@ -9,7 +9,7 @@ from sqlalchemy import event
 
 # 全局数据库实例，供模型和应用共享
 db = SQLAlchemy()
-DATABASE_URI = "sqlite:///blog.db"
+DATABASE_URI = "sqlite:////var/www/MyWebsiteDatabase/blog.db"
 MIGRATION_MARKER_KEY = "json_to_sqlite_blog_migration_v1"
 LEGACY_DATA_JSON_PATH = Path(__file__).resolve().parents[1] / "data.json"
 LEGACY_BLOGS_JSON_PATH = Path(__file__).resolve().parents[1] / "blogs.json"
