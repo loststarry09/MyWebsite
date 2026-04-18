@@ -112,6 +112,8 @@ mkdir -p database logs frontend-dist
 
 **重要：GitHub 仓库只包含源码，不包含 `database`、`logs`、`frontend-dist` 这些运行时目录，必须手动创建。Flask 在首次启动时会在 `database` 目录自动生成 `blog.db`。**
 
+**强烈警告：请使用普通用户直接执行 `mkdir` 创建 `database` 目录，绝不要加 `sudo`，否则极易导致目录/数据库归属变为 `root`，引发后端写入失败。**
+
 安装后端依赖：
 
 ```bash
@@ -284,13 +286,34 @@ ls -ld /home/admin/program/MyWebsite/database
 sudo systemctl cat mywebsite-backend | grep SQLALCHEMY_DATABASE_URI
 ```
 
-### 5.3 前端更新后页面不变
+### 5.3 报错 `attempt to write a readonly database`
+
+报错现象：
+
+- 发布/保存博客时失败
+- 后端日志出现：`sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) attempt to write a readonly database`
+
+原因剖析：
+
+- 常见于曾使用 `sudo` 手动创建 `database` 目录，或用 `sudo` 运行过 SQLite 调试脚本
+- 导致 `/home/admin/program/MyWebsite/database` 与 `blog.db` 所有者变成 `root`
+- Gunicorn 以普通用户（如 `admin`）运行时只读不可写，从而触发该错误
+
+修复命令（以 `admin` 用户为例）：
+
+```bash
+sudo chown -R admin:admin /home/admin/program/MyWebsite/database
+sudo chmod -R 775 /home/admin/program/MyWebsite/database
+sudo systemctl restart mywebsite-backend
+```
+
+### 5.4 前端更新后页面不变
 
 - 忘记执行 `npm run build`
 - 忘记 `rsync` 到 `/home/admin/program/MyWebsite/frontend-dist`
 - Nginx 未 reload
 
-### 5.4 API 404/502
+### 5.5 API 404/502
 
 - 后端服务异常：`sudo systemctl status mywebsite-backend --no-pager`
 - 查看日志：`sudo journalctl -u mywebsite-backend -n 100 --no-pager`
