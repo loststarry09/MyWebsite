@@ -30,8 +30,9 @@ watchEffect((onCleanup) => {
       if (!active) return
       renderedContent.value = DOMPurify.sanitize(rawHtml)
     })
-    .catch(() => {
+    .catch((error) => {
       if (!active) return
+      console.error('Markdown render failed:', error)
       renderedContent.value = ''
     })
 })
