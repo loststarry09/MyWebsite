@@ -1,6 +1,8 @@
 <script setup>
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import DOMPurify from 'dompurify'
+import { marked } from 'marked'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -15,6 +17,8 @@ const loading = ref(false)
 const submitLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const previewHtml = ref('')
+let previewVersionCounter = 0
 
 const form = ref({
   title: '',
@@ -22,6 +26,35 @@ const form = ref({
   tagsText: '',
   isFavorite: false,
 })
+
+watch(
+  () => form.value.content,
+  (markdownText) => {
+    const currentVersion = ++previewVersionCounter
+    const parsed = marked.parse(markdownText ?? '', {
+      gfm: true,
+      breaks: true,
+    })
+
+    if (typeof parsed === 'string') {
+      if (currentVersion !== previewVersionCounter) return
+      previewHtml.value = DOMPurify.sanitize(parsed)
+      return
+    }
+
+    parsed
+      .then((rawHtml) => {
+        if (currentVersion !== previewVersionCounter) return
+        previewHtml.value = DOMPurify.sanitize(rawHtml)
+      })
+      .catch((error) => {
+        if (currentVersion !== previewVersionCounter) return
+        console.error('Markdown preview render failed:', error)
+        previewHtml.value = ''
+      })
+  },
+  { immediate: true },
+)
 
 function normalizeTags(value) {
   if (!value) return []
@@ -119,14 +152,24 @@ onMounted(fetchBlogForEdit)
         />
       </label>
 
-      <label class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
-        内容
-        <textarea
-          v-model="form.content"
-          rows="8"
-          class="rounded border border-stone-300 bg-white px-3 py-2 text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
-        />
-      </label>
+      <div class="grid gap-4 md:grid-cols-2">
+        <label class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
+          内容（Markdown）
+          <textarea
+            v-model="form.content"
+            rows="14"
+            class="min-h-80 rounded border border-stone-300 bg-white px-3 py-2 font-mono text-sm text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
+          />
+        </label>
+
+        <div class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
+          <span>预览</span>
+          <article
+            class="prose prose-stone min-h-80 max-w-none rounded border border-stone-300 bg-white px-3 py-2 transition-colors duration-300 dark:border-stone-600 dark:bg-stone-900 dark:prose-invert"
+            v-html="previewHtml"
+          />
+        </div>
+      </div>
 
       <label class="inline-flex items-center gap-2 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
         <input v-model="form.isFavorite" type="checkbox" />
