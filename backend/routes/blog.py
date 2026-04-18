@@ -123,7 +123,7 @@ def list_blogs():
 
 
 @blog_bp.get("/blog")
-def list_blogs_v2():
+def list_blogs_alias():
     return list_blogs()
 
 
@@ -158,8 +158,9 @@ def get_blog(blog_id: str):
     if blog is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
-    blog.views += 1
+    Blog.query.filter(Blog.id == blog_pk).update({"views": Blog.views + 1}, synchronize_session=False)
     db.session.commit()
+    blog = db.session.get(Blog, blog_pk)
     return jsonify(_serialize_blog(blog))
 
 
