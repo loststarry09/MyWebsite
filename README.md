@@ -180,7 +180,118 @@ sudo certbot --nginx -d your-domain.com
 
 ---
 
-## 3. 项目里已做的部署/调试适配优化
+## 3. 项目更新与服务重启指南（Ubuntu 24.04）
+
+> 适用场景：前端（Vue3 + Vite）已构建为 `dist`，后端 Flask 通过 Gunicorn + systemd 托管，Nginx 提供对外访问。
+
+### 3.1 查看服务状态
+
+为什么要做：先确认当前服务状态，避免在异常状态下直接更新。
+
+```bash
+sudo systemctl status mywebsite-backend --no-pager
+sudo systemctl is-active mywebsite-backend
+```
+
+用途：确认服务是否已启动、是否异常退出。
+
+### 3.2 停止后端服务
+
+为什么要做：更新后端代码前先停服务，避免更新过程中请求命中不完整代码。
+
+```bash
+sudo systemctl stop mywebsite-backend
+sudo systemctl status mywebsite-backend --no-pager
+```
+
+用途：确保 Flask/Gunicorn 进程已停止，再执行代码替换。
+
+### 3.3 更新后端代码
+
+为什么要做：让服务启动时加载最新后端逻辑与依赖。
+
+```bash
+cd /var/www/MyWebsiteV1
+git pull
+cd /var/www/MyWebsiteV1/backend
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+用途：更新 `backend` 目录并同步依赖。  
+注意：若非 `git pull`，请直接替换 `/var/www/MyWebsiteV1/backend`；同时确认部署用户对该目录有读写权限。
+
+### 3.4 更新前端代码（重要）
+
+为什么要做：前端部署的是构建产物 `dist`，不重新构建不会生效。
+
+```bash
+cd /path/to/MyWebsiteV1/frontend
+npm ci
+npm run build
+```
+
+```bash
+rsync -av --delete /path/to/MyWebsiteV1/frontend/dist/ /var/www/mywebsite-frontend/
+```
+
+用途：先本地生成最新 `dist`，再覆盖服务器静态目录。  
+注意：`--delete` 会删除目标目录中源目录不存在的文件，执行前请确认源路径为正确的 `dist/`。  
+重点：只改源码但不执行 `npm run build`，线上页面不会更新。
+
+### 3.5 重新启动服务
+
+为什么要做：让 systemd 重新拉起 Gunicorn，加载更新后的代码与依赖。
+
+```bash
+sudo systemctl restart mywebsite-backend
+sudo systemctl status mywebsite-backend --no-pager
+```
+
+用途：推荐 `restart`，一次完成停止与启动，减少遗漏风险。
+
+### 3.6 验证更新是否生效
+
+为什么要做：确认前后端都已切换到新版本。
+
+```bash
+curl http://127.0.0.1:5000/api/programs
+curl -I http://your-domain.com
+```
+
+用途：`curl` 验证 API 与站点响应；同时在浏览器访问首页与关键页面确认前端更新。
+
+### 3.7 查看日志（排查问题）
+
+为什么要做：当服务启动失败、接口报错时，日志是第一定位入口。
+
+```bash
+sudo journalctl -u mywebsite-backend -n 100 --no-pager
+sudo journalctl -u mywebsite-backend -f
+```
+
+用途：查看最近日志与实时日志，快速定位部署或运行错误。
+
+### 3.8 Nginx 相关说明（简要）
+
+为什么要做：只有修改了 Nginx 配置时才需要 reload，使配置生效且不中断服务。
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+用途：先校验配置，再平滑重载。
+
+### 3.9 常见问题
+
+- 修改代码后未生效：通常是忘记重启后端服务，执行 `sudo systemctl restart mywebsite-backend`。  
+- 前端更新无变化：通常是未重新构建，执行 `npm run build` 并重新覆盖 `dist`。  
+- 权限问题：若出现 `Permission denied`，检查部署用户对 `/var/www/MyWebsiteV1` 与 `/var/www/mywebsite-frontend` 的目录权限。
+
+---
+
+## 4. 项目里已做的部署/调试适配优化
 
 1. **后端环境化启动参数**
    - `APP_HOST`、`APP_PORT`、`APP_DEBUG` 可配置
@@ -207,24 +318,24 @@ sudo certbot --nginx -d your-domain.com
 
 ---
 
-## 4. 常见故障排查
+## 5. 常见故障排查
 
-### 4.1 前端请求 404/502
+### 5.1 前端请求 404/502
 
 - 确认后端是否在本机 `127.0.0.1:5000` 运行
 - 确认 Nginx `location /api/` 生效并已 reload
 - 通过 `curl http://127.0.0.1:5000/api/programs` 先验证后端自身
 
-### 4.2 页面空白或路由刷新 404
+### 5.2 页面空白或路由刷新 404
 
 - 确认 Nginx 对 `/` 使用：`try_files $uri $uri/ /index.html;`
 
-### 4.3 后端更新不生效
+### 5.3 后端更新不生效
 
 - 执行 `sudo systemctl restart mywebsite-backend`
 - 查看日志 `sudo journalctl -u mywebsite-backend -f`
 
-### 4.4 前端更新不生效
+### 5.4 前端更新不生效
 
 - 重新构建并覆盖静态目录：
   - `npm run build`
@@ -232,7 +343,7 @@ sudo certbot --nginx -d your-domain.com
 
 ---
 
-## 5. 开发校验命令
+## 6. 开发校验命令
 
 ```bash
 # 后端语法校验（项目根目录）
