@@ -20,12 +20,17 @@ watchEffect((onCleanup) => {
   })
 
   const markdownText = blog.value?.content ?? ''
-  Promise.resolve(
-    marked.parse(markdownText, {
-      gfm: true,
-      breaks: true,
-    }),
-  )
+  const parsed = marked.parse(markdownText, {
+    gfm: true,
+    breaks: true,
+  })
+
+  if (typeof parsed === 'string') {
+    renderedContent.value = DOMPurify.sanitize(parsed)
+    return
+  }
+
+  parsed
     .then((rawHtml) => {
       if (!active) return
       renderedContent.value = DOMPurify.sanitize(rawHtml)
