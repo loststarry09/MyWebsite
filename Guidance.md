@@ -1,393 +1,165 @@
-# 源码结构与修改指南（中级开发者版）
+# 源码结构与修改指南（解耦部署 + Markdown 渲染链路）
 
-> 目标：拿到项目后，10 分钟内能定位并改动核心功能。
-> 本文档示例统一以项目目录名 `MyWebsite` 为准。
-
-## 一、文档目标
-
-你应能快速完成：
-
-- 找到“该改哪一层”（页面、路由、接口、后端逻辑）
-- 改页面内容/跳转/样式
-- 改接口地址与请求逻辑
-- 新增项目数据（前端静态 or 后端接口）
-- 理解前后端一次请求的完整链路
+> 目标：让维护者快速理解 `/home/admin/program/MyWebsite/` 下的物理隔离架构，并准确修改前端 Markdown 渲染逻辑。
 
 ---
 
-## 二、项目结构（按职责划分）
+## 一、全局路径与部署约定
 
-### 前端（Vue）
+统一工作区（示例用户：admin）：`/home/admin/program/MyWebsite/`
 
-- `frontend/src/views/`  
-  页面级逻辑（本项目对应你说的 `pages/` 职责，当前目录名是 `views/`）。
-  - 改页面文案、按钮、交互：优先进这里。
-  - 示例：`Home.vue`、`Programs.vue`、`ProgramDetail.vue`、`Fun.vue`
+- 源代码路径：`/home/admin/program/MyWebsite/code/`
+- 数据库存放：`/home/admin/program/MyWebsite/database/`
+- 日志目录：`/home/admin/program/MyWebsite/logs/`
+- 前端静态产物：`/home/admin/program/MyWebsite/frontend-dist/`
 
-- `frontend/src/components/`  
-  复用组件层（本项目有 `NavCard.vue`）。
-  - 改“多个页面复用”的卡片/通用 UI，改这里。
-
-- `frontend/src/router/index.js`  
-  前端路由入口。
-  - 新页面接入、路径调整、详情页参数路由都在这里。
-
-- `frontend/src/App.vue`  
-  全局壳层（头部导航 + `<RouterView />`）。
-  - 改全站导航、全局布局优先在这里。
-
-- `frontend/src/main.js`  
-  应用挂载入口（创建 app、挂载 router）。
-
-- `frontend/src/style.css`  
-  全局基础样式。
-
-- `frontend/src/api/index.js`  
-  **当前仓库不存在该文件**。当前 axios 调用直接写在各 `views`（如 `Programs.vue`、`Fun.vue`）。
-  - 需要切换后端地址时，优先通过 `VITE_API_PROXY_TARGET` 与 Nginx 代理调整，不建议直接改页面里的 `/api/*`。
-
-### 后端（Flask）
-
-- `backend/app.py`  
-  Flask 应用入口，注册蓝图到 `/api` 前缀。
-  - API 总入口挂载位置看这里。
-
-- `backend/database/db.py`  
-  数据库初始化与自动建表入口（SQLite `blog.db`），并处理历史 JSON 博客迁移。
-  - 改数据库初始化、迁移逻辑、SQLite 参数时看这里。
-
-- `backend/models/blog.py`  
-  博客与标签的数据模型（SQLAlchemy）。
-  - 改字段结构（如新增字段）时，需同步路由序列化逻辑。
-
-- `backend/routes/program.py`  
-  接口定义层（请求参数校验、HTTP 状态码、调用 service）。
-  - 改“接口路径/参数/返回格式”，改这里。
-
-- `backend/services/runner.py`  
-  Program/Fun 的 JSON 数据读写层（`data.json`）。
-  - 改“程序与娱乐”数据来源/落盘逻辑，改这里。
-
-- `backend/routes/blog.py`  
-  博客 CRUD 路由层（基于 SQLAlchemy，不走 `runner.py`）。
-  - 改博客接口字段、校验、查询条件、返回格式，改这里。
+> 文档中涉及源码路径时，统一使用 `/home/admin/program/MyWebsite/code/`，不再使用旧的 `/path/to/MyWebsite/` 或 `/var/www/...` 写法。
 
 ---
 
-## 三、高频修改入口（核心🔥）
+## 二、项目结构
 
-## 前端常改文件
+### 2.1 代码目录速览（`/home/admin/program/MyWebsite/code/`）
 
-- `frontend/src/views/Home.vue`  
-  首页导航卡片：博客 URL、按钮文案、按钮跳转路径
-- `frontend/src/views/Programs.vue`  
-  项目列表展示、添加项目弹窗、`/api/programs` 与 `/api/program` 调用
-- `frontend/src/views/ProgramDetail.vue`  
-  项目详情展示逻辑（当前基于 `src/data/programs.js`）
-- `frontend/src/router/index.js`  
-  路由 path/name/component 映射
-- `frontend/src/App.vue`  
-  顶部导航入口
-- `frontend/src/style.css`  
-  全局样式
-- `frontend/src/data/programs.js`  
-  前端静态项目数据（详情页当前直接依赖它）
+前端核心：
 
-## 后端常改文件
+- `frontend/src/views/`：页面逻辑（Home、Programs、Fun、Blog*）
+- `frontend/src/components/`：复用组件
+- `frontend/src/router/index.js`：前端路由
+- `frontend/src/utils/markdown.js`：Markdown 渲染与净化核心
 
-- `backend/routes/program.py`  
-  `/api/programs`、`/api/program`、`/api/fun` 等接口定义
-- `backend/services/runner.py`  
-  `get_programs` / `add_program` / `get_fun_items` / `add_fun_item`
-- `backend/data.json`  
-  当前持久化数据文件（程序列表与娱乐项）
-- `backend/routes/blog.py`  
-  博客 CRUD 接口与时间字段（`createdAt` / `updatedAt`）生成逻辑（UTC）
-- `backend/database/db.py`、`backend/models/blog.py`  
-  博客数据库初始化与模型定义（SQLite + SQLAlchemy）
+后端核心：
 
-## 博客时间显示规则（新增）
+- `backend/app.py`：Flask 启动与蓝图注册
+- `backend/routes/blog.py`：博客 CRUD API
+- `backend/routes/program.py`：Program/Fun API
+- `backend/database/db.py`：SQLAlchemy 初始化、SQLite 校验、建表与迁移
+- `backend/models/blog.py`：博客模型
+- `backend/services/runner.py`：Program/Fun JSON 数据处理
 
-- 后端以 UTC ISO 字符串保存博客时间（示例：`2026-04-12T15:17:00Z`）。
-- 前端展示时需转换为用户浏览器本地时区，避免“创建于 23:17 却显示 15:17”的时差问题。
+### 2.2 服务器部署物理拓扑
+
+工作区采用四目录平级解耦：
+
+- `code/`：仅存放 Git 管理的源代码与部署脚本
+- `database/`：仅存放 SQLite 数据文件（`blog.db`）
+- `logs/`：仅存放 Gunicorn/应用运行日志
+- `frontend-dist/`：仅存放前端构建产物（Nginx 直接挂载）
+
+关键收益：
+
+- `blog.db` 被剥离到 `database/` 后，后续无论 `git pull`、回滚代码，甚至误执行 `rm -rf code`，用户数据仍安全保留。
+- 代码、数据、日志权限边界清晰，排障与运维成本显著降低。
 
 ---
 
-## 四、常见修改场景（含修改前/后示例）
+## 三、后端与数据库运行约束
 
-### 1）修改博客跳转 URL
+数据库文件固定路径：
 
-- 文件路径：`/path/to/MyWebsite/frontend/src/views/Home.vue`
-- 修改位置：博客卡片 `href`
+- `/home/admin/program/MyWebsite/database/blog.db`
 
-```vue
-<!-- 修改前 -->
-<NavCard
-  title="博客"
-  subtitle="打开外部博客"
-  href="https://example.com"
-  :external="true"
-/>
-```
+systemd 必配项：
 
-```vue
-<!-- 修改后 -->
-<NavCard
-  title="博客"
-  subtitle="打开外部博客"
-  href="https://your-blog-domain.com"
-  :external="true"
-/>
-```
+- `User=admin`
+- `Group=admin`
+- `WorkingDirectory=/home/admin/program/MyWebsite/code/backend`
+- `ExecStart=/home/admin/program/MyWebsite/code/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/code/deploy/gunicorn.conf.py wsgi:app`
+- `Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsite/database/blog.db"`
 
-### 2）修改首页按钮内容或跳转路径
-
-- 文件路径：`/path/to/MyWebsite/frontend/src/views/Home.vue`
-- 修改位置：任意 `NavCard` 的 `title/subtitle/to`
-
-```vue
-<!-- 修改前 -->
-<NavCard title="我的程序" subtitle="查看项目列表" to="/programs" />
-```
-
-```vue
-<!-- 修改后 -->
-<NavCard title="项目中心" subtitle="查看全部项目" to="/programs" />
-```
-
-```vue
-<!-- 修改前 -->
-<NavCard title="娱乐" subtitle="轻松一下" to="/fun" />
-```
-
-```vue
-<!-- 修改后（改跳转） -->
-<NavCard title="娱乐" subtitle="轻松一下" to="/coming-soon" />
-```
-
-### 3）修改 API 基础地址（localhost → 服务器）
-
-- 推荐方式：**保持前端代码使用相对路径 `/api/*` 不变**，通过代理层切换目标地址。
-- 本地开发：
-  - 临时切换代理目标：
-    - `VITE_API_PROXY_TARGET=http://127.0.0.1:5000 npm run dev`
-  - 若后端在其他主机，替换为对应地址即可。
-- 生产环境：
-  - 修改 Nginx 的 `location /api/` 反向代理到后端服务。
-- 不推荐在页面里把 `/api/*` 硬编码成完整域名（会增加环境切换成本）。
-
-```js
-// 当前推荐写法（保留相对路径）
-await axios.get('/api/programs')
-await axios.post('/api/program', payload)
-```
-
-```js
-// Fun.vue 同理
-await axios.get('/api/fun')
-await axios.post('/api/fun', payload)
-```
-
-### 4）添加一个新项目（两种方式）
-
-#### 方式 A：前端写死
-
-- 文件路径：`/path/to/MyWebsite/frontend/src/data/programs.js`
-- 修改位置：`programs` 数组新增对象
-
-```js
-// 修改前（节选）
-export const programs = [
-  {
-    id: 'focus-timer',
-    name: '专注计时器',
-    summary: '一个轻量的番茄钟工具，支持自定义时长与阶段提醒。',
-    stack: ['Vue 3', 'Tailwind CSS'],
-    status: '进行中',
-    repoUrl: '',
-    demoUrl: '',
-  },
-]
-```
-
-```js
-// 修改后（新增一项）
-export const programs = [
-  {
-    id: 'focus-timer',
-    name: '专注计时器',
-    summary: '一个轻量的番茄钟工具，支持自定义时长与阶段提醒。',
-    stack: ['Vue 3', 'Tailwind CSS'],
-    status: '进行中',
-    repoUrl: '',
-    demoUrl: '',
-  },
-  {
-    id: 'new-tool',
-    name: '新工具',
-    summary: '这是新增项目',
-    stack: ['Vue 3', 'Flask'],
-    status: '规划中',
-    repoUrl: '',
-    demoUrl: '',
-  },
-]
-```
-
-#### 方式 B：后端接口返回
-
-- 文件路径：
-  - 接口定义：`/path/to/MyWebsite/backend/routes/program.py`
-  - 数据逻辑：`/path/to/MyWebsite/backend/services/runner.py`
-  - 数据落盘：`/path/to/MyWebsite/backend/data.json`
-- 修改位置：调用现有 `POST /api/program`，或直接写入 `data.json` 的 `programs` 数组
-- 重要说明：`Programs.vue` 列表页可读取后端数据，但 `ProgramDetail.vue` 详情页当前读取 `frontend/src/data/programs.js` 静态数据。
-  - 若你希望“后端新增项目”也能进入详情页，需要同步改 `ProgramDetail.vue` 的数据来源。
-
-```json
-// data.json 修改前（节选）
-{
-  "programs": [
-    {
-      "id": "focus-timer",
-      "name": "专注计时器"
-    }
-  ],
-  "fun": []
-}
-```
-
-```json
-// data.json 修改后（节选）
-{
-  "programs": [
-    {
-      "id": "new-tool",
-      "name": "新工具",
-      "summary": "这是新增项目",
-      "stack": ["Vue 3", "Flask"],
-      "status": "规划中"
-    },
-    {
-      "id": "focus-timer",
-      "name": "专注计时器"
-    }
-  ],
-  "fun": []
-}
-```
-
-### 5）修改页面样式（颜色/布局）
-
-- 文件路径：
-  - 页面局部样式类：`/path/to/MyWebsite/frontend/src/views/*.vue`
-  - 全局基础样式：`/path/to/MyWebsite/frontend/src/style.css`
-- 修改位置：Tailwind 类名 / 全局 CSS
-
-```vue
-<!-- App.vue 修改前 -->
-<div class="min-h-screen bg-[#F7F5F2] text-gray-800">
-```
-
-```vue
-<!-- App.vue 修改后（改全局背景） -->
-<div class="min-h-screen bg-slate-100 text-gray-800">
-```
-
-```css
-/* style.css 修改前 */
-body {
-  margin: 0;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-}
-```
-
-```css
-/* style.css 修改后（示例：全局字体与背景） */
-body {
-  margin: 0;
-  font-family: "Segoe UI", Inter, sans-serif;
-  background: #f1f5f9;
-}
-```
+> SQLite 绝对路径 URI 必须是 `sqlite:////`（4 个斜杠）。
 
 ---
 
-## 五、前后端交互说明（简洁版）
+## 四、前端关键目录与修改入口
 
-### Program/Fun 请求链路
-
-1. Vue 页面触发请求（如 `Programs.vue` 的 `axios.get('/api/programs')`）  
-2. 请求进入 Flask：`app.py` 把蓝图挂载在 `/api`  
-3. 路由层 `routes/program.py` 匹配接口并校验参数  
-4. 调用 `services/runner.py` 读写内存 + `data.json`  
-5. Flask 返回 JSON  
-6. Vue 收到数据后更新 `ref`/`computed`，模板自动渲染
-
-### Blog 请求链路
-
-1. Vue 页面触发请求（如 `BlogList.vue` 的 `axios.get('/api/blog')`）  
-2. 请求进入 `routes/blog.py`  
-3. 使用 SQLAlchemy 访问 SQLite（`backend/blog.db`）  
-4. 路由层完成字段校验、序列化与统一响应  
-5. Vue 端据响应渲染列表/详情/编辑状态
+- 页面与交互：`/home/admin/program/MyWebsite/code/frontend/src/views/*.vue`
+- 路由：`/home/admin/program/MyWebsite/code/frontend/src/router/index.js`
+- 全局样式：`/home/admin/program/MyWebsite/code/frontend/src/style.css`
+- Markdown 渲染统一入口：`/home/admin/program/MyWebsite/code/frontend/src/utils/markdown.js`
 
 ---
 
-## 六、开发与修改流程
+## 五、前后端交互说明
 
-## 前端
+### 5.1 Program/Fun
 
-- 开发：  
-  `cd /path/to/MyWebsite/frontend && npm run dev`
-- 修改后：Vite 自动热更新
-- 构建：  
-  `cd /path/to/MyWebsite/frontend && npm run build`
+`Vue 页面` → `/api/*` → `routes/program.py` → `services/runner.py` → `backend/data.json`
 
-## 后端
+### 5.2 Blog
 
-- 启动：  
-  `cd /path/to/MyWebsite/backend && APP_DEBUG=1 python app.py`
-- 修改后：
-  - `APP_DEBUG=1` 时，Flask 开发服务支持自动重载
-  - 生产环境（Gunicorn/systemd）修改后需 `sudo systemctl restart mywebsite-backend`
+`Vue 页面` → `/api/blog*` → `routes/blog.py` → SQLAlchemy → `database/blog.db`
 
 ---
 
-## 七、修改后自检清单（推荐每次都跑）
+## 六、Markdown 渲染与高亮机制
+
+### 6.1 解析与防御
+
+1. 后端只返回 Markdown 纯文本（不返回已拼接的危险 HTML）。
+2. 前端使用 `marked` 将 Markdown 解析为 HTML。
+3. 解析结果立即进入 `DOMPurify.sanitize(...)` 进行净化。
+4. 净化后的结果再通过 `v-html` 渲染到页面。
+
+### 6.2 防 XSS 与高亮共存的关键点
+
+- `highlight.js` 会为代码片段注入 `hljs` 等 `class`。
+- 若 `DOMPurify` 不允许 `class`，这些高亮类会被清洗掉，最终“有代码块但无高亮”。
+- 因此必须确保净化配置保留 `class`（可用 `ADD_ATTR: ['class']`，或与当前实现一致在 `ALLOWED_ATTR` 中包含 `class`）。
+
+### 6.3 样式与冲突处理
+
+- 外层统一使用 Tailwind Typography 的 `.prose` 托管正文排版。
+- `.prose` 会影响 `<pre>` 默认样式，可能覆盖代码块背景色。
+- 在 Vue 组件使用 `<style scoped>` + `:deep(.prose pre)` 并配合 `!important` 强制覆写背景（如 `#1f2937`），即可稳定呈现深色代码块。
+- 建议同时保留 `:deep(.prose pre code)` 的透明背景覆写，避免双层背景冲突。
+
+---
+
+## 七、开发与发布自检
 
 ```bash
-# 项目根目录
-cd /path/to/MyWebsite
+# 后端语法检查
+cd /home/admin/program/MyWebsite/code/
 python -m compileall backend
 
-# 前端构建校验
-cd /path/to/MyWebsite/frontend
+# 前端构建检查
+cd /home/admin/program/MyWebsite/code/frontend
 npm run build
 ```
 
-浏览器/接口人工校验：
+部署后核对：
 
-- 关键页面可打开（`/`、`/programs`、`/fun`、`/blog`）
-- 关键接口可返回（`/api/programs`、`/api/fun`、`/api/blog`）
-- 新增/编辑功能至少手动走一遍（项目新增、娱乐新增、博客新增/编辑）
+```bash
+sudo systemctl status mywebsite-backend --no-pager
+curl http://127.0.0.1:5000/api/programs
+curl -I http://your-domain.com
+```
 
 ---
 
-## 八、常见问题（简洁版）
+## 八、常见问题速查
 
-- 修改未生效  
-  - 前端：确认 dev 服务在跑；生产环境确认已重新 `npm run build` 并替换静态文件  
-  - 后端：确认已重启 Flask/Gunicorn
+- `Address already in use`
+  - `sudo fuser -k 5000/tcp`
+  - `sudo systemctl restart mywebsite-backend`
 
-- API 报错/请求失败  
-  - 检查后端是否启动在 `5000`  
-  - 检查前端请求路径是否仍指向正确 `/api/*` 或服务器域名
+- `unable to open database file`
+  - 检查 URI 是否为 `sqlite:////...`（4 斜杠）
+  - 检查 `database/` 目录是否已创建且可写
 
-- 路由跳转异常  
-  - 核对 `frontend/src/router/index.js` 是否注册了目标路径  
-  - 核对 `RouterLink` 的 `to` 是否拼写一致
+- `attempt to write a readonly database`
+  - 检查 `database/` 与 `blog.db` 所有者是否为运行用户（如 `admin`）
+  - 避免使用 `sudo` 创建或调试数据库目录
 
-- 跨域问题  
-  - 若前端与后端不同域，后端需增加 CORS 配置  
-  - 同域反向代理（Nginx `/api`）可避免大多数跨域问题
+- Nginx 读不到静态文件
+  - 确认已执行：`chmod +x /home/admin /home/admin/program /home/admin/program/MyWebsite`
+
+---
+
+## 九、维护原则
+
+1. 坚持 `code/database/logs/frontend-dist` 四目录物理隔离。
+2. Markdown 渲染逻辑统一在 `frontend/src/utils/markdown.js` 维护，禁止页面私有分叉实现。
+3. 禁止将 SQLite 放回源码目录。
+4. 生产变更后必须执行 `daemon-reload + restart + status + curl` 完整验收。

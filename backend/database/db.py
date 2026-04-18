@@ -1,4 +1,5 @@
 import json
+import os
 from threading import Lock
 from datetime import datetime
 from pathlib import Path
@@ -6,10 +7,13 @@ from pathlib import Path
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import event
+from sqlalchemy.engine.url import make_url
 
 # 全局数据库实例，供模型和应用共享
 db = SQLAlchemy()
-DATABASE_URI = "sqlite:////var/www/MyWebsiteDatabase/blog.db"
+EXPECTED_DB_PATH = Path("/home/admin/program/MyWebsite/database/blog.db")
+LEGACY_DB_PATH = Path("/home/admin/program/MyWebsite/code/backend/blog.db")
+LEGACY_DB_DIR = LEGACY_DB_PATH.parent
 MIGRATION_MARKER_KEY = "json_to_sqlite_blog_migration_v1"
 LEGACY_DATA_JSON_PATH = Path(__file__).resolve().parents[1] / "data.json"
 LEGACY_BLOGS_JSON_PATH = Path(__file__).resolve().parents[1] / "blogs.json"
@@ -129,11 +133,70 @@ def _migrate_legacy_json_blogs() -> None:
         raise
 
 
+def _resolve_sqlite_db_path(database_uri: str) -> Path | None:
+    url = make_url(database_uri)
+    if not url.drivername.startswith("sqlite"):
+        return None
+    if not url.database:
+        raise RuntimeError(f"Invalid SQLite database URI: {database_uri}")
+    db_path = Path(url.database).expanduser()
+    return db_path.resolve()
+
+
+def _assert_database_uri_is_safe(database_uri: str) -> None:
+    sqlite_path = _resolve_sqlite_db_path(database_uri)
+    if sqlite_path is None:
+        return
+    if sqlite_path == LEGACY_DB_PATH or LEGACY_DB_DIR in sqlite_path.parents:
+        raise RuntimeError(f"Fatal: legacy SQLite path detected: {sqlite_path}")
+    if sqlite_path != EXPECTED_DB_PATH:
+        raise RuntimeError(f"Fatal: SQLite path mismatch: {sqlite_path}, expected: {EXPECTED_DB_PATH}")
+
+
+def _assert_sqlite_uri_and_dir_permissions(database_uri: str) -> None:
+    url = make_url(database_uri)
+    if not url.drivername.startswith("sqlite"):
+        return
+
+    database = url.database
+    if not database:
+        raise RuntimeError("Fatal: SQLite URI is invalid because database path is empty.")
+    if database == ":memory:":
+        return
+
+    sqlite_path = Path(database).expanduser()
+    # Linux absolute SQLite path must use sqlite:////... (4 slashes).
+    if sqlite_path.is_absolute() and not database_uri.startswith("sqlite:////"):
+        raise RuntimeError(
+            "Fatal: SQLite absolute path must start with 'sqlite:////' (4 slashes), "
+            f"got: {database_uri}"
+        )
+
+    sqlite_dir = sqlite_path.resolve().parent
+    if not sqlite_dir.exists():
+        raise RuntimeError(f"Fatal: SQLite directory does not exist: {sqlite_dir}")
+    if not os.access(sqlite_dir, os.W_OK):
+        raise RuntimeError(
+            f"Fatal: SQLite directory is not writable: {sqlite_dir}. "
+            "Please grant write permission to the runtime user."
+        )
+
+
 def init_db(app: Flask) -> None:
     """初始化 SQLite 与 SQLAlchemy，并自动建库建表。"""
-    app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
+    raw_database_uri = os.getenv("SQLALCHEMY_DATABASE_URI")
+    if raw_database_uri is None or not raw_database_uri.strip():
+        raise RuntimeError("Fatal: SQLALCHEMY_DATABASE_URI is required and cannot be empty.")
+    database_uri = raw_database_uri.strip()
+    sqlite_path = _resolve_sqlite_db_path(database_uri)
+    if sqlite_path is not None:
+        app.logger.info(f"Resolved SQLite absolute path: {sqlite_path}")
+    _assert_sqlite_uri_and_dir_permissions(database_uri)
+    _assert_database_uri_is_safe(database_uri)
+    app.config["SQLALCHEMY_DATABASE_URI"] = database_uri
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"timeout": 30}}
+    app.logger.info(f"Using database at: {app.config['SQLALCHEMY_DATABASE_URI']}")
     db.init_app(app)
 
     with app.app_context():
