@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-DB_DIR="/var/www/MyWebsiteDatabase"
-DB_GROUP="${DB_GROUP:-www-data}"
+DB_DIR="${DB_DIR:-/home/admin/program/MyWebsiteDatabase}"
+DB_GROUP="${DB_GROUP:-admin}"
 SERVICE_NAME="mywebsite-backend"
 PORT="5000"
 HAS_ERROR=0

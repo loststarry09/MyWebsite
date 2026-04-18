@@ -3,12 +3,13 @@ Description=MyWebsite Flask backend (Gunicorn)
 After=network.target
 
 [Service]
-User=www-data
-Group=www-data
-WorkingDirectory=/var/www/MyWebsite/backend
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/program/MyWebsite/backend
 Environment=APP_DEBUG=0
 Environment=PYTHONUNBUFFERED=1
-ExecStart=/var/www/MyWebsite/backend/.venv/bin/gunicorn -c /var/www/MyWebsite/deploy/gunicorn.conf.py wsgi:app
+Environment=SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsiteDatabase/blog.db
+ExecStart=/home/admin/program/MyWebsite/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/deploy/gunicorn.conf.py wsgi:app
 Restart=always
 RestartSec=3
 
