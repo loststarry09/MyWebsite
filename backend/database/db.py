@@ -129,7 +129,9 @@ def init_db(app: Flask) -> None:
     with app.app_context():
         import models  # noqa: F401
 
-        if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:"):
+        if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:") and not app.extensions.get(
+            "sqlite_pragmas_registered", False
+        ):
             @event.listens_for(db.engine, "connect")
             def _set_sqlite_pragma(dbapi_connection, _connection_record):
                 cursor = dbapi_connection.cursor()
@@ -137,6 +139,7 @@ def init_db(app: Flask) -> None:
                 cursor.execute("PRAGMA journal_mode=WAL")
                 cursor.execute("PRAGMA synchronous=NORMAL")
                 cursor.close()
+            app.extensions["sqlite_pragmas_registered"] = True
 
         db.create_all()
         _migrate_legacy_json_blogs()
