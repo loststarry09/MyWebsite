@@ -195,16 +195,18 @@ sudo systemctl is-active mywebsite-backend
 
 用途：确认服务是否已启动、是否异常退出。
 
-### 3.2 停止后端服务
+### 3.2 停止 Gunicorn 与 Nginx 服务
 
-为什么要做：更新后端代码前先停服务，避免更新过程中请求命中不完整代码。
+为什么要做：更新期间先停后端与网关服务，避免请求命中不完整代码或旧配置。
 
 ```bash
 sudo systemctl stop mywebsite-backend
+sudo systemctl stop nginx
 sudo systemctl status mywebsite-backend --no-pager
+sudo systemctl status nginx --no-pager
 ```
 
-用途：确保 Flask/Gunicorn 进程已停止，再执行代码替换。
+用途：确保 Gunicorn 与 Nginx 都已停止，再执行代码与配置替换。
 
 ### 3.3 更新后端代码
 
@@ -272,16 +274,22 @@ sudo journalctl -u mywebsite-backend -f
 
 用途：查看最近日志与实时日志，快速定位部署或运行错误。
 
-### 3.8 Nginx 相关说明（简要）
+### 3.8 配置 Nginx 文件并生效
 
-为什么要做：只有修改了 Nginx 配置时才需要 reload，使配置生效且不中断服务。
+为什么要做：当你更新反向代理、静态目录或域名配置时，需要先修改配置文件再让服务生效。
 
 ```bash
+sudo cp /var/www/MyWebsiteV1.1/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
+sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
+# 如需人工修改，编辑该文件：
+sudo nano /etc/nginx/sites-available/mywebsite
 sudo nginx -t
 sudo systemctl reload nginx
+# 若此前执行过 stop，可改为启动：
+sudo systemctl start nginx
 ```
 
-用途：先校验配置，再平滑重载。
+用途：先配置/修改 Nginx 文件并校验语法，再 reload（或 start）使配置生效。
 
 ### 3.9 常见问题
 
