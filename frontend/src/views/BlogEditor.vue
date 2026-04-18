@@ -72,8 +72,13 @@ async function submitForm() {
       ? await axios.put(`/api/blog/${route.params.id}`, payload)
       : await axios.post('/api/blog', payload)
 
+    const targetId = isEdit.value ? route.params.id : data?.data?.id
+    if (!targetId) {
+      throw new Error('missing_blog_id_in_response')
+    }
+
     successMessage.value = isEdit.value ? '博客更新成功。' : '博客创建成功。'
-    await router.push(`/blog/${data?.data?.id ?? route.params.id}`)
+    await router.push(`/blog/${targetId}`)
   } catch (error) {
     errorMessage.value = isEdit.value ? '更新失败，请稍后重试。' : '创建失败，请稍后重试。'
   } finally {
