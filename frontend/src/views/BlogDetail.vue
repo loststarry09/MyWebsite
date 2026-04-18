@@ -159,3 +159,11 @@ async function deleteBlog() {
     </div>
   </section>
 </template>
+
+<style scoped>
+/* 覆盖 highlight.js 默认的背景色，让外层 Tailwind 的 pre 背景色透出来 */
+:deep(.prose pre code.hljs) {
+  background-color: transparent !important;
+  padding: 0 !important; /* 去除 hljs 默认内边距，统一由 Tailwind 接管 */
+}
+</style>
