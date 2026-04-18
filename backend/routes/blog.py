@@ -4,7 +4,9 @@ from datetime import datetime, timezone
 
 from flask import Blueprint, jsonify, request
 from sqlalchemy import or_
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import selectinload
 
 from database.db import db
 from models.blog import Blog, Tag
@@ -53,17 +55,11 @@ def _resolve_tags(tags) -> list[Tag]:
     if not names:
         return []
 
+    stmt = sqlite_insert(Tag).values([{"name": name} for name in names]).on_conflict_do_nothing(index_elements=["name"])
+    db.session.execute(stmt)
     existing_tags = Tag.query.filter(Tag.name.in_(names)).all()
     existing_map = {tag.name: tag for tag in existing_tags}
-    resolved: list[Tag] = []
-
-    for name in names:
-        tag = existing_map.get(name)
-        if tag is None:
-            tag = Tag(name=name)
-            db.session.add(tag)
-        resolved.append(tag)
-    return resolved
+    return [existing_map[name] for name in names if name in existing_map]
 
 
 def _parse_blog_id(blog_id: str) -> int | None:
@@ -78,10 +74,14 @@ def _invalid_blog_id_response():
 
 
 def _error_response(error: str, message: str, status: int, code: str | None = None):
-    payload = {"error": error, "message": message}
+    payload = {"success": False, "data": None, "message": message, "error": error}
     if code:
         payload["code"] = code
     return jsonify(payload), status
+
+
+def _success_response(data, message: str = "", status: int = 200):
+    return jsonify({"success": True, "data": data, "message": message}), status
 
 
 def _safe_route(handler):
@@ -114,6 +114,20 @@ def _validate_content(value):
     if len(value) > MAX_CONTENT_LENGTH:
         return f"字段 content 长度不能超过 {MAX_CONTENT_LENGTH} 个字符"
     return None
+
+
+def _parse_bool_payload(value):
+    if isinstance(value, bool):
+        return value, True
+    if isinstance(value, int) and value in {0, 1}:
+        return bool(value), True
+    if isinstance(value, str):
+        normalized = value.strip().lower()
+        if normalized in {"true", "1", "yes", "on"}:
+            return True, True
+        if normalized in {"false", "0", "no", "off"}:
+            return False, True
+    return None, False
 
 
 def _parse_bool_arg(name: str) -> bool | None:
@@ -153,7 +167,7 @@ def list_blogs():
     page_size = _parse_int_arg("pageSize", default=DEFAULT_PAGE_SIZE, minimum=1, maximum=MAX_PAGE_SIZE)
     offset = (page - 1) * page_size
 
-    query = Blog.query
+    query = Blog.query.options(selectinload(Blog.tags))
     if tag:
         query = query.join(Blog.tags).filter(Tag.name == tag)
     if keyword:
@@ -163,7 +177,7 @@ def list_blogs():
         query = query.filter(Blog.is_favorite.is_(favorite))
 
     blogs = query.order_by(Blog.created_at.desc(), Blog.id.desc()).offset(offset).limit(page_size).all()
-    return jsonify([_serialize_blog(blog) for blog in blogs])
+    return _success_response([_serialize_blog(blog) for blog in blogs])
 
 
 @blog_bp.get("/blog")
@@ -180,7 +194,7 @@ def get_blog_by_query():
     if not blog_id:
         return _error_response(
             "missing_blog_id",
-            "请通过查询参数 id 提供博客 ID，例如 /api/blog/?id=welcome-blog",
+            "请通过查询参数 id 提供博客 ID，例如 /api/blog/?id=1",
             400,
             code="MISSING_BLOG_ID",
         )
@@ -192,7 +206,7 @@ def get_blog_by_query():
     blog = db.session.get(Blog, blog_pk)
     if blog is None:
         return _error_response("not_found", f"Blog '{blog_id}' not found", 404, code="NOT_FOUND")
-    return jsonify(_serialize_blog(blog))
+    return _success_response(_serialize_blog(blog))
 
 
 @blog_bp.get("/blog/<blog_id>")
@@ -209,7 +223,7 @@ def get_blog(blog_id: str):
     Blog.query.filter(Blog.id == blog_pk).update({"views": Blog.views + 1}, synchronize_session=False)
     db.session.commit()
     db.session.refresh(blog)
-    return jsonify(_serialize_blog(blog))
+    return _success_response(_serialize_blog(blog))
 
 
 @blog_bp.post("/blog")
@@ -237,11 +251,19 @@ def create_blog():
     except (ValueError, TypeError):
         return _error_response("validation_error", "字段 views 必须是数字", 400, code="VALIDATION_ERROR")
 
+    is_favorite, is_favorite_ok = _parse_bool_payload(payload.get("isFavorite", False))
+    if not is_favorite_ok:
+        return _error_response("validation_error", "字段 isFavorite 必须是布尔值", 400, code="VALIDATION_ERROR")
+
+    is_published, is_published_ok = _parse_bool_payload(payload.get("isPublished", False))
+    if not is_published_ok:
+        return _error_response("validation_error", "字段 isPublished 必须是布尔值", 400, code="VALIDATION_ERROR")
+
     blog = Blog(
         title=title.strip(),
         content=content if isinstance(content, str) else "",
-        is_favorite=bool(payload.get("isFavorite", False)),
-        is_published=bool(payload.get("isPublished", False)),
+        is_favorite=is_favorite,
+        is_published=is_published,
         views=views,
     )
     blog.tags = _resolve_tags(payload.get("tags"))
@@ -249,7 +271,7 @@ def create_blog():
     db.session.commit()
     logger.info("blog_created id=%s title=%s", blog.id, blog.title)
 
-    return jsonify(_serialize_blog(blog)), 201
+    return _success_response(_serialize_blog(blog), status=201)
 
 
 @blog_bp.put("/blog/<blog_id>")
@@ -283,10 +305,16 @@ def update_blog(blog_id: str):
         blog.tags = _resolve_tags(payload["tags"])
 
     if "isFavorite" in payload:
-        blog.is_favorite = bool(payload["isFavorite"])
+        is_favorite, is_favorite_ok = _parse_bool_payload(payload["isFavorite"])
+        if not is_favorite_ok:
+            return _error_response("validation_error", "字段 isFavorite 必须是布尔值", 400, code="VALIDATION_ERROR")
+        blog.is_favorite = is_favorite
 
     if "isPublished" in payload:
-        blog.is_published = bool(payload["isPublished"])
+        is_published, is_published_ok = _parse_bool_payload(payload["isPublished"])
+        if not is_published_ok:
+            return _error_response("validation_error", "字段 isPublished 必须是布尔值", 400, code="VALIDATION_ERROR")
+        blog.is_published = is_published
 
     if "views" in payload:
         try:
@@ -297,7 +325,7 @@ def update_blog(blog_id: str):
     db.session.commit()
     logger.info("blog_updated id=%s", blog.id)
 
-    return jsonify(_serialize_blog(blog))
+    return _success_response(_serialize_blog(blog))
 
 
 @blog_bp.delete("/blog/<blog_id>")
@@ -315,4 +343,4 @@ def delete_blog(blog_id: str):
     db.session.delete(blog)
     db.session.commit()
     logger.info("blog_deleted id=%s", blog_pk)
-    return jsonify({"deleted": True, "blog": deleted})
+    return _success_response({"deleted": True, "blog": deleted})

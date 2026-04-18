@@ -37,11 +37,12 @@ async function fetchBlogForEdit() {
   loading.value = true
   errorMessage.value = ''
   try {
-    const { data } = await axios.get(`/api/blog/${route.params.id}`)
-    form.value.title = data?.title ?? ''
-    form.value.content = data?.content ?? ''
-    form.value.tagsText = Array.isArray(data?.tags) ? data.tags.join(', ') : ''
-    form.value.isFavorite = Boolean(data?.isFavorite)
+    const { data } = await axios.get('/api/blog/', { params: { id: route.params.id } })
+    const blog = data?.data ?? {}
+    form.value.title = blog?.title ?? ''
+    form.value.content = blog?.content ?? ''
+    form.value.tagsText = Array.isArray(blog?.tags) ? blog.tags.join(', ') : ''
+    form.value.isFavorite = Boolean(blog?.isFavorite)
   } catch (error) {
     errorMessage.value = '博客加载失败，请返回列表重试。'
   } finally {
@@ -72,7 +73,7 @@ async function submitForm() {
       : await axios.post('/api/blog', payload)
 
     successMessage.value = isEdit.value ? '博客更新成功。' : '博客创建成功。'
-    await router.push(`/blog/${data.id}`)
+    await router.push(`/blog/${data?.data?.id ?? route.params.id}`)
   } catch (error) {
     errorMessage.value = isEdit.value ? '更新失败，请稍后重试。' : '创建失败，请稍后重试。'
   } finally {

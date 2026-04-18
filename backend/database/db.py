@@ -4,6 +4,7 @@ from pathlib import Path
 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import event
 
 # 全局数据库实例，供模型和应用共享
 db = SQLAlchemy()
@@ -122,10 +123,20 @@ def init_db(app: Flask) -> None:
     """初始化 SQLite 与 SQLAlchemy，并自动建库建表。"""
     app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URI
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"connect_args": {"timeout": 30}}
     db.init_app(app)
 
     with app.app_context():
         import models  # noqa: F401
+
+        if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:"):
+            @event.listens_for(db.engine, "connect")
+            def _set_sqlite_pragma(dbapi_connection, _connection_record):
+                cursor = dbapi_connection.cursor()
+                cursor.execute("PRAGMA foreign_keys=ON")
+                cursor.execute("PRAGMA journal_mode=WAL")
+                cursor.execute("PRAGMA synchronous=NORMAL")
+                cursor.close()
 
         db.create_all()
         _migrate_legacy_json_blogs()

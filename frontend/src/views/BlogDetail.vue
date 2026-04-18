@@ -25,7 +25,10 @@ async function fetchBlog() {
   blog.value = null
   try {
     const { data } = await axios.get(`/api/blog/${route.params.id}`)
-    blog.value = data
+    blog.value = data?.data ?? null
+    if (!blog.value) {
+      loadError.value = '博客数据格式错误，请稍后重试。'
+    }
   } catch (error) {
     if (error?.response?.status === 404) {
       loadError.value = '未找到该博客。'
