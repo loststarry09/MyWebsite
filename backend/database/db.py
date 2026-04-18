@@ -148,16 +148,16 @@ def _assert_database_uri_is_safe(database_uri: str) -> None:
     sqlite_path = _resolve_sqlite_db_path(database_uri)
     if sqlite_path is None:
         return
-    normalized = sqlite_path.resolve()
-    if normalized == LEGACY_DB_PATH or normalized.is_relative_to(LEGACY_DB_DIR):
-        raise RuntimeError(f"Fatal: legacy SQLite path detected: {normalized}")
-    if normalized != EXPECTED_DB_PATH:
-        raise RuntimeError(f"Fatal: SQLite path mismatch: {normalized}, expected: {EXPECTED_DB_PATH}")
+    if sqlite_path == LEGACY_DB_PATH or LEGACY_DB_DIR in sqlite_path.parents:
+        raise RuntimeError(f"Fatal: legacy SQLite path detected: {sqlite_path}")
+    if sqlite_path != EXPECTED_DB_PATH:
+        raise RuntimeError(f"Fatal: SQLite path mismatch: {sqlite_path}, expected: {EXPECTED_DB_PATH}")
 
 
 def init_db(app: Flask) -> None:
     """初始化 SQLite 与 SQLAlchemy，并自动建库建表。"""
-    database_uri = (os.getenv("SQLALCHEMY_DATABASE_URI") or DATABASE_URI).strip()
+    raw_database_uri = os.getenv("SQLALCHEMY_DATABASE_URI")
+    database_uri = (raw_database_uri if raw_database_uri is not None else DATABASE_URI).strip()
     if not database_uri:
         raise RuntimeError("Fatal: SQLALCHEMY_DATABASE_URI cannot be empty.")
     sqlite_path = _resolve_sqlite_db_path(database_uri)
