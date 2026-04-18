@@ -10,7 +10,7 @@ def init_db(app: Flask) -> None:
     db.init_app(app)
 
     with app.app_context():
-        # 确保模型已导入并完成映射注册
-        from models.blog import Blog  # noqa: F401
+        # 统一导入模型，确保映射注册完成
+        import models  # noqa: F401
 
         db.create_all()
