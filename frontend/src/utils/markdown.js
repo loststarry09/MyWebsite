@@ -10,6 +10,8 @@ import { marked } from 'marked'
 import { markedHighlight } from 'marked-highlight'
 
 const sanitizeConfig = {
+  ADD_TAGS: ['img'],
+  ADD_ATTR: ['src', 'alt'],
   ALLOWED_TAGS: [
     'h1',
     'h2',
