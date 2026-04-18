@@ -1,4 +1,5 @@
 import json
+from threading import Lock
 from datetime import datetime
 from pathlib import Path
 
@@ -12,6 +13,7 @@ DATABASE_URI = "sqlite:///blog.db"
 MIGRATION_MARKER_KEY = "json_to_sqlite_blog_migration_v1"
 LEGACY_DATA_JSON_PATH = Path(__file__).resolve().parents[1] / "data.json"
 LEGACY_BLOGS_JSON_PATH = Path(__file__).resolve().parents[1] / "blogs.json"
+_SQLITE_PRAGMA_LISTENER_LOCK = Lock()
 
 
 def _set_sqlite_pragma(dbapi_connection, _connection_record):
@@ -137,11 +139,11 @@ def init_db(app: Flask) -> None:
     with app.app_context():
         import models  # noqa: F401
 
-        if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:") and not app.extensions.get(
-            "sqlite_pragmas_registered", False
-        ):
-            event.listen(db.engine, "connect", _set_sqlite_pragma)
-            app.extensions["sqlite_pragmas_registered"] = True
+        if app.config["SQLALCHEMY_DATABASE_URI"].startswith("sqlite:"):
+            with _SQLITE_PRAGMA_LISTENER_LOCK:
+                if not app.extensions.get("sqlite_pragmas_registered", False):
+                    event.listen(db.engine, "connect", _set_sqlite_pragma)
+                    app.extensions["sqlite_pragmas_registered"] = True
 
         db.create_all()
         _migrate_legacy_json_blogs()

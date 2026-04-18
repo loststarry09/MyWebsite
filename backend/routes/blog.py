@@ -116,7 +116,7 @@ def _validate_content(value):
     return None
 
 
-def _try_parse_bool(value):
+def _parse_bool_with_status(value):
     if isinstance(value, bool):
         return value, True
     if isinstance(value, int) and value in {0, 1}:
@@ -252,11 +252,11 @@ def create_blog():
     except (ValueError, TypeError):
         return _error_response("validation_error", "字段 views 必须是数字", 400, code="VALIDATION_ERROR")
 
-    is_favorite, is_favorite_ok = _try_parse_bool(payload.get("isFavorite", False))
+    is_favorite, is_favorite_ok = _parse_bool_with_status(payload.get("isFavorite", False))
     if not is_favorite_ok:
         return _error_response("validation_error", "字段 isFavorite 必须是布尔值", 400, code="VALIDATION_ERROR")
 
-    is_published, is_published_ok = _try_parse_bool(payload.get("isPublished", False))
+    is_published, is_published_ok = _parse_bool_with_status(payload.get("isPublished", False))
     if not is_published_ok:
         return _error_response("validation_error", "字段 isPublished 必须是布尔值", 400, code="VALIDATION_ERROR")
 
@@ -306,13 +306,13 @@ def update_blog(blog_id: str):
         blog.tags = _resolve_tags(payload["tags"])
 
     if "isFavorite" in payload:
-        is_favorite, is_favorite_ok = _try_parse_bool(payload["isFavorite"])
+        is_favorite, is_favorite_ok = _parse_bool_with_status(payload["isFavorite"])
         if not is_favorite_ok:
             return _error_response("validation_error", "字段 isFavorite 必须是布尔值", 400, code="VALIDATION_ERROR")
         blog.is_favorite = is_favorite
 
     if "isPublished" in payload:
-        is_published, is_published_ok = _try_parse_bool(payload["isPublished"])
+        is_published, is_published_ok = _parse_bool_with_status(payload["isPublished"])
         if not is_published_ok:
             return _error_response("validation_error", "字段 isPublished 必须是布尔值", 400, code="VALIDATION_ERROR")
         blog.is_published = is_published
