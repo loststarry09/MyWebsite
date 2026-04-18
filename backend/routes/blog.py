@@ -8,6 +8,10 @@ from database.db import db
 from models.blog import Blog, Tag
 
 blog_bp = Blueprint("blog", __name__)
+DEFAULT_PAGE = 1
+DEFAULT_PAGE_SIZE = 10
+MAX_PAGE = 10000
+MAX_PAGE_SIZE = 100
 
 
 def _normalize_tags(tags):
@@ -101,8 +105,8 @@ def list_blogs():
     tag = request.args.get("tag", "").strip()
     keyword = request.args.get("keyword", "").strip()
     favorite = _parse_bool_arg("favorite")
-    page = _parse_int_arg("page", default=1, minimum=1, maximum=100000)
-    page_size = _parse_int_arg("pageSize", default=10, minimum=1, maximum=100)
+    page = _parse_int_arg("page", default=DEFAULT_PAGE, minimum=1, maximum=MAX_PAGE)
+    page_size = _parse_int_arg("pageSize", default=DEFAULT_PAGE_SIZE, minimum=1, maximum=MAX_PAGE_SIZE)
     offset = (page - 1) * page_size
 
     query = Blog.query
@@ -154,9 +158,8 @@ def get_blog(blog_id: str):
     if blog is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
-    db.session.query(Blog).filter(Blog.id == blog_pk).update({Blog.views: Blog.views + 1})
+    blog.views = int(blog.views or 0) + 1
     db.session.commit()
-    db.session.refresh(blog)
     return jsonify(_serialize_blog(blog))
 
 
