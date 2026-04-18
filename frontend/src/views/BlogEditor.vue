@@ -1,6 +1,8 @@
 <script setup>
 import axios from 'axios'
-import { computed, onMounted, ref } from 'vue'
+import { marked } from 'marked'
+import { sanitizeMarkdownHtml, setupMarkdownRenderer } from '../utils/markdown'
+import { computed, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -15,6 +17,9 @@ const loading = ref(false)
 const submitLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
+const previewHtml = ref('')
+const previewVersionCounter = ref(0)
+setupMarkdownRenderer()
 
 const form = ref({
   title: '',
@@ -22,6 +27,35 @@ const form = ref({
   tagsText: '',
   isFavorite: false,
 })
+
+watch(
+  () => form.value.content,
+  (markdownText) => {
+    const currentVersion = ++previewVersionCounter.value
+    const parsed = marked.parse(markdownText, {
+      gfm: true,
+      breaks: true,
+    })
+
+    if (typeof parsed === 'string') {
+      if (currentVersion !== previewVersionCounter.value) return
+      previewHtml.value = sanitizeMarkdownHtml(parsed)
+      return
+    }
+
+    parsed
+      .then((rawHtml) => {
+        if (currentVersion !== previewVersionCounter.value) return
+        previewHtml.value = sanitizeMarkdownHtml(rawHtml)
+      })
+      .catch((error) => {
+        if (currentVersion !== previewVersionCounter.value) return
+        console.error('Markdown preview render failed:', error)
+        previewHtml.value = ''
+      })
+  },
+  { immediate: true },
+)
 
 function normalizeTags(value) {
   if (!value) return []
@@ -119,14 +153,25 @@ onMounted(fetchBlogForEdit)
         />
       </label>
 
-      <label class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
-        内容
-        <textarea
-          v-model="form.content"
-          rows="8"
-          class="rounded border border-stone-300 bg-white px-3 py-2 text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
-        />
-      </label>
+      <div class="grid gap-4 md:grid-cols-2">
+        <label class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
+          内容（Markdown）
+          <textarea
+            v-model="form.content"
+            rows="14"
+            class="min-h-80 rounded border border-stone-300 bg-white px-3 py-2 font-mono text-sm text-stone-800 outline-none transition-colors duration-300 focus:border-stone-500 dark:border-stone-600 dark:bg-stone-900 dark:text-stone-100 dark:focus:border-stone-400"
+          />
+        </label>
+
+        <div class="grid gap-1 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
+          <span>预览</span>
+          <article
+            class="prose prose-stone prose-headings:font-semibold prose-li:my-1 prose-code:bg-gray-100 prose-code:text-red-500 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none min-h-80 max-w-none rounded border border-stone-300 bg-white px-3 py-2 transition-colors duration-300 dark:prose-invert dark:prose-code:bg-gray-800 dark:prose-code:text-pink-400 dark:border-stone-600 dark:bg-stone-900"
+            aria-label="Markdown preview"
+            v-html="previewHtml"
+          />
+        </div>
+      </div>
 
       <label class="inline-flex items-center gap-2 text-sm text-stone-700 transition-colors duration-300 dark:text-stone-300">
         <input v-model="form.isFavorite" type="checkbox" />
@@ -151,3 +196,20 @@ onMounted(fetchBlogForEdit)
     </div>
   </section>
 </template>
+
+<style scoped>
+:deep(.prose pre) {
+  background-color: #1f2937 !important;
+  color: #f3f4f6 !important;
+  border-radius: 0.5rem;
+}
+
+:deep(.dark .prose pre) {
+  background-color: #111827 !important;
+}
+
+:deep(.prose pre code) {
+  background-color: transparent !important;
+  padding: 0 !important;
+}
+</style>

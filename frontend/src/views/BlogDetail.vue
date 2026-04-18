@@ -1,6 +1,8 @@
 <script setup>
 import axios from 'axios'
-import { onMounted, ref } from 'vue'
+import { marked } from 'marked'
+import { sanitizeMarkdownHtml, setupMarkdownRenderer } from '../utils/markdown'
+import { onMounted, ref, watch } from 'vue'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 const route = useRoute()
@@ -9,6 +11,38 @@ const blog = ref(null)
 const loading = ref(true)
 const loadError = ref('')
 const deleting = ref(false)
+const renderedContent = ref('')
+const latestRenderVersion = ref(0)
+setupMarkdownRenderer()
+
+watch(
+  () => blog.value?.content ?? '',
+  (markdownText) => {
+    const currentVersion = ++latestRenderVersion.value
+    const parsed = marked.parse(markdownText, {
+      gfm: true,
+      breaks: true,
+    })
+
+    if (typeof parsed === 'string') {
+      if (currentVersion !== latestRenderVersion.value) return
+      renderedContent.value = sanitizeMarkdownHtml(parsed)
+      return
+    }
+
+    parsed
+      .then((rawHtml) => {
+        if (currentVersion !== latestRenderVersion.value) return
+        renderedContent.value = sanitizeMarkdownHtml(rawHtml)
+      })
+      .catch((error) => {
+        if (currentVersion !== latestRenderVersion.value) return
+        console.error('Markdown render failed:', error)
+        renderedContent.value = ''
+      })
+  },
+  { immediate: true },
+)
 
 function formatTime(timeStr) {
   if (!timeStr) return '-'
@@ -88,7 +122,11 @@ async function deleteBlog() {
         </li>
       </ul>
 
-      <article class="mt-4 whitespace-pre-wrap text-sm leading-6 text-stone-700 transition-colors duration-300 dark:text-stone-300">{{ blog.content }}</article>
+      <article
+        class="prose prose-stone prose-headings:font-semibold prose-li:my-1 prose-code:bg-gray-100 prose-code:text-red-500 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none mt-4 max-w-none transition-colors duration-300 dark:prose-invert dark:prose-code:bg-gray-800 dark:prose-code:text-pink-400"
+        aria-label="Blog post content"
+        v-html="renderedContent"
+      />
 
       <p class="mt-6 text-sm text-gray-500 transition-colors duration-300 dark:text-gray-400">
         📅 创建：{{ formatTime(blog.createdAt) }}<br>
@@ -121,3 +159,20 @@ async function deleteBlog() {
     </div>
   </section>
 </template>
+
+<style scoped>
+:deep(.prose pre) {
+  background-color: #1f2937 !important;
+  color: #f3f4f6 !important;
+  border-radius: 0.5rem;
+}
+
+:deep(.dark .prose pre) {
+  background-color: #111827 !important;
+}
+
+:deep(.prose pre code) {
+  background-color: transparent !important;
+  padding: 0 !important;
+}
+</style>
