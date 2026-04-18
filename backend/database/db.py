@@ -12,7 +12,7 @@ from sqlalchemy.engine.url import make_url
 # 全局数据库实例，供模型和应用共享
 db = SQLAlchemy()
 EXPECTED_DB_PATH = Path("/home/admin/program/MyWebsite/database/blog.db")
-LEGACY_DB_PATH = Path("/home/admin/program/MyWebsite/backend/blog.db")
+LEGACY_DB_PATH = Path("/home/admin/program/MyWebsite/code/backend/blog.db")
 LEGACY_DB_DIR = LEGACY_DB_PATH.parent
 MIGRATION_MARKER_KEY = "json_to_sqlite_blog_migration_v1"
 LEGACY_DATA_JSON_PATH = Path(__file__).resolve().parents[1] / "data.json"
@@ -165,6 +165,7 @@ def _assert_sqlite_uri_and_dir_permissions(database_uri: str) -> None:
         return
 
     sqlite_path = Path(database).expanduser()
+    # Linux absolute SQLite path must use sqlite:////... (4 slashes).
     if sqlite_path.is_absolute() and not database_uri.startswith("sqlite:////"):
         raise RuntimeError(
             "Fatal: SQLite absolute path must start with 'sqlite:////' (4 slashes), "

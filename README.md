@@ -32,6 +32,8 @@ $env:SQLALCHEMY_DATABASE_URI="sqlite:///blog.db"
 python app.py
 ```
 
+> 本地开发可使用相对路径 `sqlite:///blog.db`；生产环境使用绝对路径时必须写成 `sqlite:////...`（4 个斜杠）。
+
 后端校验：
 
 ```powershell
