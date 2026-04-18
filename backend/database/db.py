@@ -141,7 +141,7 @@ def _resolve_sqlite_db_path(database_uri: str) -> Path | None:
     if not url.database:
         raise RuntimeError(f"Invalid SQLite database URI: {database_uri}")
     db_path = Path(url.database).expanduser()
-    return db_path if db_path.is_absolute() else db_path.resolve()
+    return db_path.resolve()
 
 
 def _assert_database_uri_is_safe(database_uri: str) -> None:
@@ -157,7 +157,7 @@ def _assert_database_uri_is_safe(database_uri: str) -> None:
 
 def init_db(app: Flask) -> None:
     """初始化 SQLite 与 SQLAlchemy，并自动建库建表。"""
-    database_uri = os.getenv("SQLALCHEMY_DATABASE_URI", DATABASE_URI).strip()
+    database_uri = (os.getenv("SQLALCHEMY_DATABASE_URI") or DATABASE_URI).strip()
     if not database_uri:
         raise RuntimeError("Fatal: SQLALCHEMY_DATABASE_URI cannot be empty.")
     sqlite_path = _resolve_sqlite_db_path(database_uri)
