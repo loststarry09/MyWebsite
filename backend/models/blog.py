@@ -49,3 +49,11 @@ class BlogTag(db.Model):
 
     blog_id = db.Column(db.Integer, db.ForeignKey("blogs.id", ondelete="CASCADE"), primary_key=True)
     tag_id = db.Column(db.Integer, db.ForeignKey("tags.id", ondelete="CASCADE"), primary_key=True)
+
+
+class MigrationState(db.Model):
+    __tablename__ = "migration_states"
+
+    key = db.Column(db.String(100), primary_key=True)
+    value = db.Column(db.String(255), nullable=False, default="")
+    created_at = db.Column(db.DateTime(timezone=True), nullable=False, default=_utc_now)
