@@ -123,7 +123,7 @@ async function deleteBlog() {
       </ul>
 
       <article
-        class="markdown-prose mt-4 max-w-none transition-colors duration-300"
+        class="prose prose-stone prose-headings:font-semibold prose-li:my-1 prose-pre:bg-gray-200 prose-pre:text-gray-800 prose-code:bg-gray-100 prose-code:text-red-500 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none mt-4 max-w-none transition-colors duration-300 dark:prose-invert dark:prose-pre:bg-gray-900 dark:prose-pre:text-gray-200 dark:prose-code:bg-gray-800 dark:prose-code:text-pink-400"
         aria-label="Blog post content"
         v-html="renderedContent"
       />
@@ -161,9 +161,16 @@ async function deleteBlog() {
 </template>
 
 <style scoped>
-/* 覆盖 highlight.js 默认的背景色，让外层 Tailwind 的 pre 背景色透出来 */
-:deep(.prose pre code.hljs) {
+/* 终极覆盖：强制剥夺 markdown 内所有多行代码块的自带背景，统一由外层 Tailwind 接管 */
+:deep(.prose pre) {
+  /* 确保 pre 标签本身也没有被注入其他奇怪的底色 */
+  background-color: inherit !important;
+}
+
+:deep(.prose pre code) {
+  /* 强制内层 code 背景透明 */
   background-color: transparent !important;
-  padding: 0 !important; /* 去除 hljs 默认内边距，统一由 Tailwind 接管 */
+  /* 去除默认内边距，防止溢出 */
+  padding: 0 !important;
 }
 </style>
