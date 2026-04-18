@@ -5,11 +5,11 @@ After=network.target
 [Service]
 User=admin
 Group=admin
-WorkingDirectory=/home/admin/program/MyWebsite/backend
+WorkingDirectory=/home/admin/program/MyWebsite/code/backend
 Environment=APP_DEBUG=0
 Environment=PYTHONUNBUFFERED=1
-Environment=SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsiteDatabase/blog.db
-ExecStart=/home/admin/program/MyWebsite/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/deploy/gunicorn.conf.py wsgi:app
+Environment=SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsite/database/blog.db
+ExecStart=/home/admin/program/MyWebsite/code/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/code/deploy/gunicorn.conf.py wsgi:app
 Restart=always
 RestartSec=3
 

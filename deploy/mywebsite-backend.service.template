@@ -8,14 +8,14 @@ User=admin
 Group=admin
 
 # 按你的实际部署目录修改：
-WorkingDirectory=/home/admin/program/MyWebsite/backend
+WorkingDirectory=/home/admin/program/MyWebsite/code/backend
 
 Environment="APP_DEBUG=0"
 Environment="PYTHONUNBUFFERED=1"
-Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsiteDatabase/blog.db"
+Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsite/database/blog.db"
 
 # 按你的实际部署目录与虚拟环境路径修改：
-ExecStart=/home/admin/program/MyWebsite/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/deploy/gunicorn.conf.py wsgi:app
+ExecStart=/home/admin/program/MyWebsite/code/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/code/deploy/gunicorn.conf.py wsgi:app
 Restart=always
 RestartSec=3
 

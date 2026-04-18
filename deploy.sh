@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-DB_DIR="${DB_DIR:-/home/admin/program/MyWebsiteDatabase}"
+DB_DIR="${DB_DIR:-/home/admin/program/MyWebsite/database}"
 DB_GROUP="${DB_GROUP:-admin}"
 SERVICE_NAME="mywebsite-backend"
 PORT="5000"

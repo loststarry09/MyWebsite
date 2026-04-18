@@ -11,7 +11,7 @@ from sqlalchemy.engine.url import make_url
 
 # 全局数据库实例，供模型和应用共享
 db = SQLAlchemy()
-EXPECTED_DB_PATH = Path("/home/admin/program/MyWebsiteDatabase/blog.db")
+EXPECTED_DB_PATH = Path("/home/admin/program/MyWebsite/database/blog.db")
 LEGACY_DB_PATH = Path("/home/admin/program/MyWebsite/backend/blog.db")
 LEGACY_DB_DIR = LEGACY_DB_PATH.parent
 MIGRATION_MARKER_KEY = "json_to_sqlite_blog_migration_v1"
