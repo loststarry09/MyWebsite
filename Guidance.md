@@ -1,7 +1,7 @@
 # 源码结构与修改指南（中级开发者版）
 
 > 目标：拿到项目后，10 分钟内能定位并改动核心功能。
-> 本文档示例统一以项目目录名 `MyWebsiteV1.1` 为准。
+> 本文档示例统一以项目目录名 `MyWebsite` 为准。
 
 ## 一、文档目标
 
@@ -117,7 +117,7 @@
 
 ### 1）修改博客跳转 URL
 
-- 文件路径：`/path/to/MyWebsiteV1.1/frontend/src/views/Home.vue`
+- 文件路径：`/path/to/MyWebsite/frontend/src/views/Home.vue`
 - 修改位置：博客卡片 `href`
 
 ```vue
@@ -142,7 +142,7 @@
 
 ### 2）修改首页按钮内容或跳转路径
 
-- 文件路径：`/path/to/MyWebsiteV1.1/frontend/src/views/Home.vue`
+- 文件路径：`/path/to/MyWebsite/frontend/src/views/Home.vue`
 - 修改位置：任意 `NavCard` 的 `title/subtitle/to`
 
 ```vue
@@ -192,7 +192,7 @@ await axios.post('/api/fun', payload)
 
 #### 方式 A：前端写死
 
-- 文件路径：`/path/to/MyWebsiteV1.1/frontend/src/data/programs.js`
+- 文件路径：`/path/to/MyWebsite/frontend/src/data/programs.js`
 - 修改位置：`programs` 数组新增对象
 
 ```js
@@ -237,9 +237,9 @@ export const programs = [
 #### 方式 B：后端接口返回
 
 - 文件路径：
-  - 接口定义：`/path/to/MyWebsiteV1.1/backend/routes/program.py`
-  - 数据逻辑：`/path/to/MyWebsiteV1.1/backend/services/runner.py`
-  - 数据落盘：`/path/to/MyWebsiteV1.1/backend/data.json`
+  - 接口定义：`/path/to/MyWebsite/backend/routes/program.py`
+  - 数据逻辑：`/path/to/MyWebsite/backend/services/runner.py`
+  - 数据落盘：`/path/to/MyWebsite/backend/data.json`
 - 修改位置：调用现有 `POST /api/program`，或直接写入 `data.json` 的 `programs` 数组
 - 重要说明：`Programs.vue` 列表页可读取后端数据，但 `ProgramDetail.vue` 详情页当前读取 `frontend/src/data/programs.js` 静态数据。
   - 若你希望“后端新增项目”也能进入详情页，需要同步改 `ProgramDetail.vue` 的数据来源。
@@ -280,8 +280,8 @@ export const programs = [
 ### 5）修改页面样式（颜色/布局）
 
 - 文件路径：
-  - 页面局部样式类：`/path/to/MyWebsiteV1.1/frontend/src/views/*.vue`
-  - 全局基础样式：`/path/to/MyWebsiteV1.1/frontend/src/style.css`
+  - 页面局部样式类：`/path/to/MyWebsite/frontend/src/views/*.vue`
+  - 全局基础样式：`/path/to/MyWebsite/frontend/src/style.css`
 - 修改位置：Tailwind 类名 / 全局 CSS
 
 ```vue
@@ -339,15 +339,15 @@ body {
 ## 前端
 
 - 开发：  
-  `cd /path/to/MyWebsiteV1.1/frontend && npm run dev`
+  `cd /path/to/MyWebsite/frontend && npm run dev`
 - 修改后：Vite 自动热更新
 - 构建：  
-  `cd /path/to/MyWebsiteV1.1/frontend && npm run build`
+  `cd /path/to/MyWebsite/frontend && npm run build`
 
 ## 后端
 
 - 启动：  
-  `cd /path/to/MyWebsiteV1.1/backend && APP_DEBUG=1 python app.py`
+  `cd /path/to/MyWebsite/backend && APP_DEBUG=1 python app.py`
 - 修改后：
   - `APP_DEBUG=1` 时，Flask 开发服务支持自动重载
   - 生产环境（Gunicorn/systemd）修改后需 `sudo systemctl restart mywebsite-backend`
@@ -358,11 +358,11 @@ body {
 
 ```bash
 # 项目根目录
-cd /path/to/MyWebsiteV1.1
+cd /path/to/MyWebsite
 python -m compileall backend
 
 # 前端构建校验
-cd /path/to/MyWebsiteV1.1/frontend
+cd /path/to/MyWebsite/frontend
 npm run build
 ```
 

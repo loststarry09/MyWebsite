@@ -1,4 +1,4 @@
-# MyWebsiteV1.1
+# MyWebsite
 
 前后端分离项目：
 
@@ -10,7 +10,7 @@
 
 ## 1. 本地开发（兼顾联调）
 
-> 以下示例中，项目目录统一以 `MyWebsiteV1.1` 命名。
+> 以下示例中，项目目录统一以 `MyWebsite` 命名。
 
 ### 1.1 环境准备（Windows 11）
 
@@ -21,7 +21,7 @@
 ### 1.2 启动后端（Windows PowerShell）
 
 ```powershell
-cd C:\dev\MyWebsiteV1.1\backend
+cd C:\dev\MyWebsite\backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -40,7 +40,7 @@ curl http://127.0.0.1:5000/api/programs
 ### 1.3 启动前端（Windows PowerShell）
 
 ```powershell
-cd C:\dev\MyWebsiteV1.1\frontend
+cd C:\dev\MyWebsite\frontend
 npm ci
 npm run dev
 ```
@@ -57,7 +57,7 @@ sudo apt install -y python3 python3-venv python3-pip nodejs npm nginx
 ### 1.5 启动后端（Ubuntu）
 
 ```bash
-cd /path/to/MyWebsiteV1.1/backend
+cd /path/to/MyWebsite/backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -73,7 +73,7 @@ curl http://127.0.0.1:5000/api/programs
 ### 1.6 启动前端（Ubuntu）
 
 ```bash
-cd /path/to/MyWebsiteV1.1/frontend
+cd /path/to/MyWebsite/frontend
 npm ci
 npm run dev
 ```
@@ -94,7 +94,7 @@ npm run dev
 
 下面以：
 
-- 项目目录：`/var/www/MyWebsiteV1.1`
+- 项目目录：`/var/www/MyWebsite`
 - 前端静态目录：`/var/www/mywebsite-frontend`
 - 域名：`your-domain.com`
 
@@ -116,7 +116,7 @@ sudo ufw status
 ```
 
 - 规划并确认部署目录（本文默认）：
-  - 项目源码：`/var/www/MyWebsiteV1.1`
+  - 项目源码：`/var/www/MyWebsite`
   - 前端静态目录：`/var/www/mywebsite-frontend`
 
 ### 2.1 拉取代码并安装依赖
@@ -124,14 +124,14 @@ sudo ufw status
 ```bash
 sudo mkdir -p /var/www
 cd /var/www
-sudo git clone <your-repo-url> MyWebsiteV1.1
-sudo chown -R $USER:$USER /var/www/MyWebsiteV1.1
+sudo git clone <your-repo-url> MyWebsite
+sudo chown -R $USER:$USER /var/www/MyWebsite
 ```
 
 后端依赖：
 
 ```bash
-cd /var/www/MyWebsiteV1.1/backend
+cd /var/www/MyWebsite/backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -141,7 +141,7 @@ pip install -r requirements.txt
 前端构建：
 
 ```bash
-cd /var/www/MyWebsiteV1.1/frontend
+cd /var/www/MyWebsite/frontend
 npm ci
 npm run build
 sudo mkdir -p /var/www/mywebsite-frontend
@@ -151,9 +151,9 @@ sudo rsync -av --delete dist/ /var/www/mywebsite-frontend/
 ### 2.2 手动验证 Gunicorn
 
 ```bash
-cd /var/www/MyWebsiteV1.1/backend
+cd /var/www/MyWebsite/backend
 source .venv/bin/activate
-APP_DEBUG=0 .venv/bin/gunicorn -c /var/www/MyWebsiteV1.1/deploy/gunicorn.conf.py wsgi:app
+APP_DEBUG=0 .venv/bin/gunicorn -c /var/www/MyWebsite/deploy/gunicorn.conf.py wsgi:app
 ```
 
 新开终端测试：
@@ -167,15 +167,16 @@ curl http://127.0.0.1:5000/api/programs
 复制模板、修正路径并启用：
 
 ```bash
-sudo cp /var/www/MyWebsiteV1.1/deploy/mywebsite-backend.service /etc/systemd/system/mywebsite-backend.service
-# 模板默认是 /var/www/MyWebsite/，请替换为你的实际目录（本文示例：/var/www/MyWebsiteV1.1/）
+sudo cp /var/www/MyWebsite/deploy/mywebsite-backend.service /etc/systemd/system/mywebsite-backend.service
+# 模板默认是 /var/www/MyWebsite/，若你的实际目录不同再执行替换（本文示例：/var/www/MyWebsite/）
 sudo grep -n '/var/www/MyWebsite' /etc/systemd/system/mywebsite-backend.service
-sudo sed -i 's#/var/www/MyWebsite/#/var/www/MyWebsiteV1.1/#g' /etc/systemd/system/mywebsite-backend.service
+# 仅当你的部署目录不是 /var/www/MyWebsite/ 时执行：
+# sudo sed -i 's#/var/www/MyWebsite/#/var/www/<your-project-dir>/#g' /etc/systemd/system/mywebsite-backend.service
 # 确认路径已替换正确
 sudo grep -E 'WorkingDirectory|ExecStart' /etc/systemd/system/mywebsite-backend.service
 
 # 让 www-data 具备后端运行所需读写权限（含 SQLite 与 data.json）
-sudo chown -R www-data:www-data /var/www/MyWebsiteV1.1/backend
+sudo chown -R www-data:www-data /var/www/MyWebsite/backend
 
 sudo systemctl daemon-reload
 sudo systemctl enable mywebsite-backend
@@ -193,7 +194,7 @@ sudo journalctl -u mywebsite-backend -f
 ### 2.4 配置 Nginx
 
 ```bash
-sudo cp /var/www/MyWebsiteV1.1/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
+sudo cp /var/www/MyWebsite/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
 sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
 # 建议关闭默认站点，避免冲突
 sudo rm -f /etc/nginx/sites-enabled/default
@@ -253,28 +254,28 @@ sudo systemctl status nginx --no-pager
 为什么要做：让服务启动时加载最新后端逻辑与依赖。
 
 ```bash
-cd /var/www/MyWebsiteV1.1
+cd /var/www/MyWebsite
 git pull
-cd /var/www/MyWebsiteV1.1/backend
+cd /var/www/MyWebsite/backend
 source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 用途：更新 `backend` 目录并同步依赖。  
-注意：若非 `git pull`，请直接替换 `/var/www/MyWebsiteV1.1/backend`；同时确认部署用户对该目录有读写权限。
+注意：若非 `git pull`，请直接替换 `/var/www/MyWebsite/backend`；同时确认部署用户对该目录有读写权限。
 
 ### 3.4 更新前端代码（重要）
 
 为什么要做：前端部署的是构建产物 `dist`，不重新构建不会生效。
 
 ```bash
-cd /path/to/MyWebsiteV1.1/frontend
+cd /path/to/MyWebsite/frontend
 npm ci
 npm run build
 ```
 
 ```bash
-rsync -av --delete /path/to/MyWebsiteV1.1/frontend/dist/ /var/www/mywebsite-frontend/
+rsync -av --delete /path/to/MyWebsite/frontend/dist/ /var/www/mywebsite-frontend/
 ```
 
 用途：先本地生成最新 `dist`，再覆盖服务器静态目录。  
@@ -319,7 +320,7 @@ sudo journalctl -u mywebsite-backend -f
 为什么要做：当你更新反向代理、静态目录或域名配置时，需要先修改配置文件再让服务生效。
 
 ```bash
-sudo cp /var/www/MyWebsiteV1.1/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
+sudo cp /var/www/MyWebsite/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
 sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
 # 如需人工修改，编辑该文件：
 sudo nano /etc/nginx/sites-available/mywebsite
@@ -335,7 +336,7 @@ sudo systemctl start nginx
 
 - 修改代码后未生效：通常是忘记重启后端服务，执行 `sudo systemctl restart mywebsite-backend`。  
 - 前端更新无变化：通常是未重新构建，执行 `npm run build` 并重新覆盖 `dist`。  
-- 权限问题：若出现 `Permission denied`，检查部署用户对 `/var/www/MyWebsiteV1.1` 与 `/var/www/mywebsite-frontend` 的目录权限。
+- 权限问题：若出现 `Permission denied`，检查部署用户对 `/var/www/MyWebsite` 与 `/var/www/mywebsite-frontend` 的目录权限。
 
 ### 3.10 更新后验收清单（可直接执行）
 
@@ -422,10 +423,10 @@ curl -I http://your-domain.com
 
 ```bash
 # 后端语法校验（项目根目录）
-cd /path/to/MyWebsiteV1.1
+cd /path/to/MyWebsite
 python -m compileall backend
 
 # 前端构建校验
-cd /path/to/MyWebsiteV1.1/frontend
+cd /path/to/MyWebsite/frontend
 npm run build
 ```
