@@ -167,7 +167,7 @@ def list_blogs():
     page_size = _parse_int_arg("pageSize", default=DEFAULT_PAGE_SIZE, minimum=1, maximum=MAX_PAGE_SIZE)
     offset = (page - 1) * page_size
 
-    # 预加载 tags，避免列表序列化时逐条触发关联查询（N+1）。
+    # Eager-load tags to avoid N+1 queries during list serialization.
     query = Blog.query.options(selectinload(Blog.tags))
     if tag:
         query = query.join(Blog.tags).filter(Tag.name == tag)
