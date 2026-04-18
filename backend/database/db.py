@@ -13,6 +13,4 @@ def init_db(app: Flask) -> None:
     db.init_app(app)
 
     with app.app_context():
-        # 主动建立一次连接，确保数据库文件被创建
-        db.engine.connect().close()
         db.create_all()
