@@ -198,16 +198,12 @@ onMounted(fetchBlogForEdit)
 </template>
 
 <style scoped>
-/* 终极覆盖：强制剥夺 markdown 内所有多行代码块的自带背景，统一由外层 Tailwind 接管 */
 :deep(.prose pre) {
-  /* 确保 pre 标签本身也没有被注入其他奇怪的底色 */
   background-color: inherit !important;
 }
 
 :deep(.prose pre code) {
-  /* 强制内层 code 背景透明 */
   background-color: transparent !important;
-  /* 去除默认内边距，防止溢出 */
   padding: 0 !important;
 }
 </style>
