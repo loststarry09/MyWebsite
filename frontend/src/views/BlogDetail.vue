@@ -12,30 +12,30 @@ const loading = ref(true)
 const loadError = ref('')
 const deleting = ref(false)
 const renderedContent = ref('')
-let latestRenderVersion = 0
+const latestRenderVersion = ref(0)
 
 watch(
   () => blog.value?.content ?? '',
   (markdownText) => {
-    const currentVersion = ++latestRenderVersion
+    const currentVersion = ++latestRenderVersion.value
     const parsed = marked.parse(markdownText, {
       gfm: true,
       breaks: true,
     })
 
     if (typeof parsed === 'string') {
-      if (currentVersion !== latestRenderVersion) return
+      if (currentVersion !== latestRenderVersion.value) return
       renderedContent.value = DOMPurify.sanitize(parsed)
       return
     }
 
     parsed
       .then((rawHtml) => {
-        if (currentVersion !== latestRenderVersion) return
+        if (currentVersion !== latestRenderVersion.value) return
         renderedContent.value = DOMPurify.sanitize(rawHtml)
       })
       .catch((error) => {
-        if (currentVersion !== latestRenderVersion) return
+        if (currentVersion !== latestRenderVersion.value) return
         console.error('Markdown render failed:', error)
         renderedContent.value = ''
       })

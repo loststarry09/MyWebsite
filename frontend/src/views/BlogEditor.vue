@@ -18,7 +18,7 @@ const submitLoading = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
 const previewHtml = ref('')
-let previewVersionCounter = 0
+const previewVersionCounter = ref(0)
 
 const form = ref({
   title: '',
@@ -30,25 +30,25 @@ const form = ref({
 watch(
   () => form.value.content,
   (markdownText) => {
-    const currentVersion = ++previewVersionCounter
+    const currentVersion = ++previewVersionCounter.value
     const parsed = marked.parse(markdownText ?? '', {
       gfm: true,
       breaks: true,
     })
 
     if (typeof parsed === 'string') {
-      if (currentVersion !== previewVersionCounter) return
+      if (currentVersion !== previewVersionCounter.value) return
       previewHtml.value = DOMPurify.sanitize(parsed)
       return
     }
 
     parsed
       .then((rawHtml) => {
-        if (currentVersion !== previewVersionCounter) return
+        if (currentVersion !== previewVersionCounter.value) return
         previewHtml.value = DOMPurify.sanitize(rawHtml)
       })
       .catch((error) => {
-        if (currentVersion !== previewVersionCounter) return
+        if (currentVersion !== previewVersionCounter.value) return
         console.error('Markdown preview render failed:', error)
         previewHtml.value = ''
       })
