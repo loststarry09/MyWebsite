@@ -162,7 +162,13 @@ async function deleteBlog() {
 
 <style scoped>
 :deep(.prose pre) {
-  background-color: inherit !important;
+  background-color: #1f2937 !important;
+  color: #f3f4f6 !important;
+  border-radius: 0.5rem;
+}
+
+:deep(.dark .prose pre) {
+  background-color: #111827 !important;
 }
 
 :deep(.prose pre code) {
