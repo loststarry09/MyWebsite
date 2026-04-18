@@ -30,7 +30,7 @@
 - `code/frontend/src/router/index.js`：前端路由
 - `code/frontend/src/utils/markdown.js`：Markdown 渲染与净化核心
 
-### 2.2 后端
+### 2.2 后端架构（代码/数据/日志隔离）
 
 - `code/backend/app.py`：Flask 启动与蓝图注册
 - `code/backend/routes/blog.py`：博客 CRUD API
@@ -38,6 +38,13 @@
 - `code/backend/database/db.py`：SQLAlchemy 初始化、SQLite 校验、建表与迁移
 - `code/backend/models/blog.py`：博客模型
 - `code/backend/services/runner.py`：Program/Fun JSON 数据处理
+
+隔离设计说明：
+
+- `code/` 仅存放 Git 管理的源码与部署脚本，不存放运行时数据库与日志。
+- `database/` 独立存放 `blog.db`，避免 `git pull`、误删代码目录时污染或丢失数据。
+- `logs/` 独立存放 Gunicorn/应用日志，便于排障且不干扰源码目录权限。
+- 该拆分实现“代码可回滚、数据可保留、日志可追溯”的解耦目标。
 
 ---
 
@@ -47,19 +54,26 @@
 
 1. 页面输入/读取 Markdown（`BlogEditor.vue`、`BlogDetail.vue`）
 2. `marked.parse(...)` 解析 Markdown
-3. `DOMPurify.sanitize(...)` 白名单净化 HTML
+3. `DOMPurify.sanitize(...)` 白名单净化 HTML（必须保留 `class` 属性，确保 `hljs` 高亮类名不被过滤）
 4. 通过 `v-html` 渲染净化结果
 
 高亮能力：
 
 - 在 `code/frontend/src/utils/markdown.js` 使用 `marked-highlight + highlight.js`
 - 仅注册必要语言（js/ts/json/xml/bash）
+- `markdown.js` 的净化配置需保留 `ALLOWED_ATTR` 中的 `class`，否则代码高亮会失效
 
 维护原则：
 
 - 新增 Markdown 能力优先在 `markdown.js` 统一扩展
 - 禁止在页面绕过净化直接注入 HTML
 - 任何渲染策略修改要同时验证编辑预览与详情展示
+
+样式落地经验：
+
+- 渲染容器统一使用 Tailwind Typography 的 `.prose`，保障正文排版一致性。
+- 由于 `<style scoped>` 隔离，代码块样式需通过 `:deep(.prose pre)`、`:deep(.prose pre code)` 覆盖。
+- `highlight.js` 主题默认背景在深浅主题切换时可能不匹配，实践上通过 `:deep()` 定向覆盖默认背景色更稳定。
 
 ---
 
