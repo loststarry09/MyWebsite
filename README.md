@@ -187,7 +187,7 @@ sudo nano /etc/systemd/system/mywebsite-backend.service
 - `ExecStart=/home/admin/program/MyWebsite/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/deploy/gunicorn.conf.py wsgi:app`
 - **`Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsiteDatabase/blog.db"`**
 
-> **注意：SQLite 绝对路径 URI 必须是 `sqlite:////`（4 个斜杠）**。少一个斜杠会导致 `unable to open database file` 或路径解析错误。
+> **注意： SQLite 绝对路径 URI 必须是 `sqlite:////`（4 个斜杠）**。少一个斜杠会导致 `unable to open database file` 或路径解析错误。
 
 启用并启动服务：
 
@@ -219,7 +219,7 @@ sudo rm -f /etc/nginx/sites-enabled/default
 sudo chmod +x /home/admin /home/admin/program
 ```
 
-> 说明：目录的执行权限（`x`）用于“可进入目录”，没有该权限时即使文件本身可读，Nginx 也无法访问。
+> 说明： 目录的执行权限（`x`）用于“可进入目录”，没有该权限时，即使文件本身可读，Nginx 也无法访问。
 
 按需修改站点配置并生效：
 
