@@ -1,171 +1,142 @@
 # 二次开发指南（Markdown 渲染架构 + 数据库抽离）
 
-> 目标：帮助维护者快速理解本项目最新的前后端架构、Markdown 渲染链路、SQLite 数据库隔离方案，并安全进行功能迭代。
+> 目标：帮助维护者在新目录架构下快速定位代码、理解 Markdown 渲染链路，并稳定迭代数据库相关功能。
 
 ---
 
-## 1. 架构总览
+## 1. 新部署架构总览
 
-### 1.1 技术栈
+统一工作区（示例用户：admin）：`/home/admin/program/MyWebsite`
 
-- 前端：Vue 3 + Vite + Tailwind
-- 后端：Flask + SQLAlchemy
-- 存储：SQLite（博客）+ JSON（program/fun）
+- 源代码目录：`/home/admin/program/MyWebsite/code`
+- 数据库目录：`/home/admin/program/MyWebsite/database`
+- 日志目录：`/home/admin/program/MyWebsite/logs`
+- 前端静态目录：`/home/admin/program/MyWebsite/frontend-dist`
 
-### 1.2 部署基线（User-level Deployment）
+设计目标：
 
-统一使用用户目录：
-
-- 代码目录：`/home/admin/program/MyWebsite`
-- 前端静态目录：`/home/admin/program/mywebsite-frontend`
-- 数据库目录：`/home/admin/program/MyWebsiteDatabase`
-- Gunicorn 运行用户：`admin`
-
-> 通过“代码目录/静态目录/数据库目录”三段隔离，减少权限串扰和误删风险。
+1. 代码与数据物理隔离，避免发布覆盖数据库。
+2. 日志独立存放，便于追踪线上故障。
+3. 前端静态产物独立目录，便于 Nginx 挂载。
 
 ---
 
 ## 2. 代码结构与职责
 
-### 2.1 前端核心目录
+### 2.1 前端
 
-- `frontend/src/views/`：页面级逻辑（Home、Programs、Fun、Blog*）
-- `frontend/src/components/`：复用组件层
-- `frontend/src/router/index.js`：路由注册与页面映射
-- `frontend/src/utils/markdown.js`：Markdown 渲染安全管线（核心）
+- `code/frontend/src/views/`：页面逻辑（Home、Programs、Fun、Blog*）
+- `code/frontend/src/components/`：复用组件
+- `code/frontend/src/router/index.js`：前端路由
+- `code/frontend/src/utils/markdown.js`：Markdown 渲染与净化核心
 
-### 2.2 后端核心目录
+### 2.2 后端
 
-- `backend/app.py`：Flask 应用与蓝图注册入口
-- `backend/routes/blog.py`：博客 CRUD API
-- `backend/routes/program.py`：Program/Fun API
-- `backend/database/db.py`：数据库初始化、SQLite 安全校验、建表与迁移
-- `backend/models/blog.py`：博客模型与标签模型
-- `backend/services/runner.py`：Program/Fun 的 JSON 读写逻辑
+- `code/backend/app.py`：Flask 启动与蓝图注册
+- `code/backend/routes/blog.py`：博客 CRUD API
+- `code/backend/routes/program.py`：Program/Fun API
+- `code/backend/database/db.py`：SQLAlchemy 初始化、SQLite 校验、建表与迁移
+- `code/backend/models/blog.py`：博客模型
+- `code/backend/services/runner.py`：Program/Fun JSON 数据处理
 
 ---
 
 ## 3. Markdown 渲染架构（最新）
 
-### 3.1 渲染链路
+渲染链路：
 
-1. 页面输入 Markdown（`BlogEditor.vue`）或加载 Markdown（`BlogDetail.vue`）
-2. `marked.parse(...)` 生成 HTML（支持异步）
-3. `DOMPurify.sanitize(...)` 进行白名单净化
-4. `v-html` 渲染净化后的 HTML
+1. 页面输入/读取 Markdown（`BlogEditor.vue`、`BlogDetail.vue`）
+2. `marked.parse(...)` 解析 Markdown
+3. `DOMPurify.sanitize(...)` 白名单净化 HTML
+4. 通过 `v-html` 渲染净化结果
 
-### 3.2 高亮链路
+高亮能力：
 
-在 `frontend/src/utils/markdown.js` 中：
+- 在 `code/frontend/src/utils/markdown.js` 使用 `marked-highlight + highlight.js`
+- 仅注册必要语言（js/ts/json/xml/bash）
 
-- `highlight.js` 只注册所需语言（js/ts/json/xml/bash）
-- 通过 `marked-highlight` 接入 `marked`
-- 统一 `langPrefix`，保证代码块样式稳定
+维护原则：
 
-### 3.3 安全边界
-
-- 允许标签和属性走白名单
-- 禁止直接把未净化 HTML 注入页面
-- 新增 Markdown 功能时，优先扩展 `markdown.js` 白名单与解析配置，不要在页面临时“绕过净化”
-
-### 3.4 维护建议
-
-- 若新增语言高亮：只在 `markdown.js` 注册必要语言，避免打包体积膨胀
-- 若修改渲染配置：同时验证 `BlogEditor` 预览和 `BlogDetail` 展示
-- 若引入新插件：先评估 XSS 风险，再接入
+- 新增 Markdown 能力优先在 `markdown.js` 统一扩展
+- 禁止在页面绕过净化直接注入 HTML
+- 任何渲染策略修改要同时验证编辑预览与详情展示
 
 ---
 
-## 4. 数据库抽离与路径约束
+## 4. 数据库抽离与运行约束
 
-### 4.1 为什么要抽离数据库目录
+数据库文件固定放在：
 
-将 SQLite 文件放到独立目录 `/home/admin/program/MyWebsiteDatabase`，可实现：
+- `/home/admin/program/MyWebsite/database/blog.db`
 
-- 与代码仓库解耦，避免 `git pull`/部署覆盖数据库
-- 与前端静态目录解耦，降低误操作风险
-- 权限模型更清晰（Gunicorn 用 `admin` 运行，天然可读写）
-
-### 4.2 必须遵守的 URI 规则
-
-生产环境统一使用：
-
-```bash
-SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsiteDatabase/blog.db
-```
-
-> 必须是 `sqlite:////`（4 个斜杠，绝对路径）。
-
-### 4.3 systemd 建议配置
-
-`/etc/systemd/system/mywebsite-backend.service` 关键项：
+systemd 必配项：
 
 - `User=admin`
 - `Group=admin`
-- `WorkingDirectory=/home/admin/program/MyWebsite/backend`
-- `ExecStart=/home/admin/program/MyWebsite/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/deploy/gunicorn.conf.py wsgi:app`
-- `Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsiteDatabase/blog.db"`
+- `WorkingDirectory=/home/admin/program/MyWebsite/code/backend`
+- `ExecStart=/home/admin/program/MyWebsite/code/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/code/deploy/gunicorn.conf.py wsgi:app`
+- `Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsite/database/blog.db"`
 
-修改后执行：
+> 绝对路径 URI 必须是 `sqlite:////`（4 个斜杠）。
 
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart mywebsite-backend
-```
+补充说明：
+
+- 代码仓库不会包含 `database` 目录，部署时需手动创建。
+- Flask 启动后会自动创建数据库文件（若不存在）。
 
 ---
 
-## 5. 前后端数据流
+## 5. 前后端请求链路
 
 ### 5.1 Program/Fun
 
-`Vue (Programs/Fun)` → `/api/*` → `routes/program.py` → `services/runner.py` → `backend/data.json`
+`Vue 页面` → `/api/*` → `routes/program.py` → `services/runner.py` → `code/backend/data.json`
 
 ### 5.2 Blog
 
-`Vue (BlogList/BlogDetail/BlogEditor)` → `/api/blog*` → `routes/blog.py` → SQLAlchemy → SQLite
+`Vue 页面` → `/api/blog*` → `routes/blog.py` → SQLAlchemy → `database/blog.db`
 
 ---
 
-## 6. 二次开发改动建议
+## 6. 二次开发建议
 
-### 6.1 改前端页面
+### 6.1 页面与交互改动
 
-优先改：
+优先修改：
 
-- 页面：`frontend/src/views/*.vue`
-- 路由：`frontend/src/router/index.js`
-- 公共样式：`frontend/src/style.css`
+- `code/frontend/src/views/*.vue`
+- `code/frontend/src/router/index.js`
+- `code/frontend/src/style.css`
 
-### 6.2 改博客字段/行为
+### 6.2 博客字段改动
 
 同步修改：
 
-- 模型：`backend/models/blog.py`
-- API 序列化：`backend/routes/blog.py`
-- 前端展示与编辑：`BlogDetail.vue` / `BlogEditor.vue`
+- 模型：`code/backend/models/blog.py`
+- 路由序列化：`code/backend/routes/blog.py`
+- 前端表单与展示：`BlogEditor.vue` / `BlogDetail.vue`
 
-### 6.3 改 Markdown 能力
+### 6.3 渲染能力改动
 
-统一入口：`frontend/src/utils/markdown.js`
+统一入口：`code/frontend/src/utils/markdown.js`
 
-不要直接在页面写临时渲染逻辑；应保持“解析 + 净化 + 渲染”一致链路。
+不要在单个页面增加临时渲染分支，保持全站渲染行为一致。
 
 ---
 
-## 7. 更新与自检流程
-
-### 7.1 开发自检
+## 7. 开发与发布自检
 
 ```bash
-cd /home/admin/program/MyWebsite
+# 后端语法检查
+cd /home/admin/program/MyWebsite/code
 python -m compileall backend
 
-cd /home/admin/program/MyWebsite/frontend
+# 前端构建检查
+cd /home/admin/program/MyWebsite/code/frontend
 npm run build
 ```
 
-### 7.2 部署后检查
+部署后核对：
 
 ```bash
 sudo systemctl status mywebsite-backend --no-pager
@@ -173,22 +144,26 @@ curl http://127.0.0.1:5000/api/programs
 curl -I http://your-domain.com
 ```
 
-### 7.3 常见故障速查
+---
 
-- `Address already in use`：
+## 8. 常见问题速查
 
-```bash
-sudo fuser -k 5000/tcp
-sudo systemctl restart mywebsite-backend
-```
+- `Address already in use`
+  - `sudo fuser -k 5000/tcp`
+  - `sudo systemctl restart mywebsite-backend`
 
-- `unable to open database file`：优先检查 `SQLALCHEMY_DATABASE_URI` 是否为 `sqlite:////...`（4 斜杠）以及数据库目录可写。
+- `unable to open database file`
+  - 检查 URI 是否为 `sqlite:////...`（4 斜杠）
+  - 检查 `database` 目录是否已创建且可写
+
+- Nginx 读不到静态文件
+  - 确认已执行：`chmod +x /home/admin /home/admin/program /home/admin/program/MyWebsite`
 
 ---
 
-## 8. 长期维护原则
+## 9. 维护原则
 
-1. 保持 `/home/admin/program/` 目录约定一致，避免多路径并存。
-2. Markdown 渲染能力只在 `frontend/src/utils/markdown.js` 统一演进。
-3. SQLite 物理文件与代码目录分离，禁止回退到仓库目录内存储数据库。
-4. 生产变更后统一走 `systemctl daemon-reload && systemctl restart mywebsite-backend` 验证。 
+1. 坚持 `code/database/logs/frontend-dist` 四目录隔离。
+2. Markdown 渲染逻辑统一在 `code/frontend/src/utils/markdown.js` 维护。
+3. 禁止将 SQLite 放回源码目录。
+4. 生产变更后必须执行 `daemon-reload + restart + status + curl` 完整验收。

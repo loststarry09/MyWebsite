@@ -50,7 +50,7 @@ npm run dev
 
 ```bash
 sudo apt update
-sudo apt install -y git python3 python3-venv python3-pip nodejs npm nginx rsync psmisc  # psmisc 提供 fuser
+sudo apt install -y git python3 python3-venv python3-pip nodejs npm nginx rsync psmisc
 ```
 
 > 建议 Python 3.10+，Node 18+。
@@ -65,12 +65,6 @@ pip install -r requirements.txt
 APP_DEBUG=1 APP_HOST=0.0.0.0 APP_PORT=5000 SQLALCHEMY_DATABASE_URI=sqlite:///blog.db python app.py
 ```
 
-后端校验：
-
-```bash
-curl http://127.0.0.1:5000/api/programs
-```
-
 ### 1.6 启动前端（Ubuntu）
 
 ```bash
@@ -79,117 +73,97 @@ npm ci
 npm run dev
 ```
 
-### 1.7 Windows 11 本地调试建议
-
-- 后端：保持 `APP_DEBUG=1`，在 VS Code 中以 Python 解释器 `.venv` 启动 `backend/app.py` 进行断点调试
-- 前端：在 `npm run dev` 启动后，使用浏览器开发者工具（F12）查看 Network / Console
-
-前端开发时已内置代理：
-
-- `http://127.0.0.1:5173/api/*` → `http://127.0.0.1:5000/api/*`
-- 可通过环境变量覆盖代理目标：`VITE_API_PROXY_TARGET=http://127.0.0.1:5000 npm run dev`
-
 ---
 
 ## 2. Ubuntu 24.04 生产部署（Gunicorn + Nginx + systemd）
 
-### 前置说明（强烈建议先读）
+### 前置说明（务必先读）
 
-本项目采用 **用户目录部署方案（User-level Deployment）**，统一放在 `/home/admin/program/` 下，目标是彻底规避 Web 目录部署时常见的 `www-data` 与普通用户权限冲突。
+本项目采用 **用户目录部署方案（User-level Deployment）**，并使用“代码、数据、日志、静态产物”隔离结构，显著降低权限冲突风险。
 
-本文示例统一使用：
+本文示例以 `admin` 用户为例，统一工作区如下：
 
-- 代码目录：`/home/admin/program/MyWebsite`
-- 前端静态目录：`/home/admin/program/mywebsite-frontend`
-- 数据库目录：`/home/admin/program/MyWebsiteDatabase`
-- 服务运行身份：`admin`
+- 工作区根目录：`/home/admin/program/MyWebsite`
+- 源代码目录：`/home/admin/program/MyWebsite/code`
+- 数据库目录：`/home/admin/program/MyWebsite/database`
+- 日志目录：`/home/admin/program/MyWebsite/logs`
+- 前端静态目录：`/home/admin/program/MyWebsite/frontend-dist`
 
-> `admin` 为示例用户名，请按你的实际用户名替换。
+> `admin` 为示例用户名，请替换为你的真实系统用户名。
 
-### 2.0 首部署前检查清单
+### 2.1 拉取代码与依赖
 
-- 已将域名 DNS 指向服务器公网 IP（若暂时无域名，可先用服务器 IP 验证 HTTP）
-- 服务器已安装必要工具：`git`、`python3-venv`、`nodejs`、`npm`、`nginx`、`rsync`、`psmisc`
-- 防火墙放行 Web 端口（如启用 UFW）：
+创建工作区并克隆代码（普通用户执行）：
 
 ```bash
-sudo ufw allow OpenSSH
-sudo ufw allow 80/tcp
-sudo ufw allow 443/tcp
-sudo ufw status
+mkdir -p /home/admin/program/MyWebsite
+cd /home/admin/program/MyWebsite
+git clone <your-repo-url> code
 ```
 
-### 2.1 拉取代码与依赖（普通用户，无 sudo clone/chown）
+创建运行时目录：
 
 ```bash
-mkdir -p /home/admin/program
-cd /home/admin/program
-git clone <your-repo-url> MyWebsite
+cd /home/admin/program/MyWebsite
+mkdir -p database logs frontend-dist
 ```
 
-创建数据库隔离目录：
+**重要：GitHub 仓库只包含源码，不包含 `database`、`logs`、`frontend-dist` 这些运行时目录，必须手动创建。Flask 在首次启动时会在 `database` 目录自动生成 `blog.db`。**
+
+安装后端依赖：
 
 ```bash
-mkdir -p /home/admin/program/MyWebsiteDatabase
-chmod 775 /home/admin/program/MyWebsiteDatabase
-chgrp admin /home/admin/program/MyWebsiteDatabase
-```
-
-后端依赖：
-
-```bash
-cd /home/admin/program/MyWebsite/backend
+cd /home/admin/program/MyWebsite/code/backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-前端构建：
+构建并发布前端静态文件：
 
 ```bash
-cd /home/admin/program/MyWebsite/frontend
+cd /home/admin/program/MyWebsite/code/frontend
 npm ci
 npm run build
-mkdir -p /home/admin/program/mywebsite-frontend
-rsync -av --delete dist/ /home/admin/program/mywebsite-frontend/
+rsync -av --delete dist/ /home/admin/program/MyWebsite/frontend-dist/
 ```
 
 ### 2.2 手动验证 Gunicorn
 
 ```bash
-cd /home/admin/program/MyWebsite/backend
+cd /home/admin/program/MyWebsite/code/backend
 source .venv/bin/activate
-APP_DEBUG=0 SQLALCHEMY_DATABASE_URI="sqlite:////home/admin/program/MyWebsiteDatabase/blog.db" \
-.venv/bin/gunicorn -c /home/admin/program/MyWebsite/deploy/gunicorn.conf.py wsgi:app
+APP_DEBUG=0 SQLALCHEMY_DATABASE_URI="sqlite:////home/admin/program/MyWebsite/database/blog.db" \
+.venv/bin/gunicorn -c /home/admin/program/MyWebsite/code/deploy/gunicorn.conf.py wsgi:app
 ```
 
-新开终端测试：
+另开终端验证：
 
 ```bash
 curl http://127.0.0.1:5000/api/programs
 ```
 
-### 2.3 配置 systemd（托管 Gunicorn）
+### 2.3 配置 systemd
 
-复制模板并修改服务文件：
+复制服务模板：
 
 ```bash
-sudo cp /home/admin/program/MyWebsite/deploy/mywebsite-backend.service /etc/systemd/system/mywebsite-backend.service
+sudo cp /home/admin/program/MyWebsite/code/deploy/mywebsite-backend.service /etc/systemd/system/mywebsite-backend.service
 sudo nano /etc/systemd/system/mywebsite-backend.service
 ```
 
-请重点确认以下配置：
+请确认关键项：
 
 - `User=admin`
 - `Group=admin`
-- `WorkingDirectory=/home/admin/program/MyWebsite/backend`
-- `ExecStart=/home/admin/program/MyWebsite/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/deploy/gunicorn.conf.py wsgi:app`
-- **`Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsiteDatabase/blog.db"`**
+- `WorkingDirectory=/home/admin/program/MyWebsite/code/backend`
+- `ExecStart=/home/admin/program/MyWebsite/code/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/code/deploy/gunicorn.conf.py wsgi:app`
+- **`Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsite/database/blog.db"`**
 
-> **注意： SQLite 绝对路径 URI 必须是 `sqlite:////`（4 个斜杠）**。少一个斜杠会导致 `unable to open database file` 或路径解析错误。
+> **注意：SQLite 绝对路径必须使用 `sqlite:////`（4 个斜杠）。**
 
-启用并启动服务：
+启动并设为开机自启：
 
 ```bash
 sudo systemctl daemon-reload
@@ -198,28 +172,27 @@ sudo systemctl restart mywebsite-backend
 sudo systemctl status mywebsite-backend --no-pager
 ```
 
-常用运维命令：
+查看日志：
 
 ```bash
-sudo systemctl restart mywebsite-backend
 sudo journalctl -u mywebsite-backend -f
 ```
 
 ### 2.4 配置 Nginx
 
 ```bash
-sudo cp /home/admin/program/MyWebsite/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
+sudo cp /home/admin/program/MyWebsite/code/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
 sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
 sudo rm -f /etc/nginx/sites-enabled/default
 ```
 
-为保证 Nginx（`www-data`）可穿透用户目录访问前端静态文件，请执行：
+为确保 Nginx（`www-data`）可穿透用户目录读取静态文件，请执行：
 
 ```bash
-sudo chmod +x /home/admin /home/admin/program
+chmod +x /home/admin /home/admin/program /home/admin/program/MyWebsite
 ```
 
-> 说明： 目录的执行权限（`x`）用于“可进入目录”，没有该权限时，即使文件本身可读，Nginx 也无法访问。
+> 上述目录缺少执行权限（x）时，Nginx 即使有文件读权限也无法进入目录链路。
 
 按需修改站点配置并生效：
 
@@ -239,54 +212,42 @@ sudo certbot --nginx -d your-domain.com
 
 ---
 
-## 3. 项目更新与服务重启指南（Ubuntu 24.04）
+## 3. 项目更新与发布流程
 
 ### 3.1 更新后端
 
 ```bash
-cd /home/admin/program/MyWebsite
+cd /home/admin/program/MyWebsite/code
 git pull
-cd /home/admin/program/MyWebsite/backend
+cd /home/admin/program/MyWebsite/code/backend
 source .venv/bin/activate
 pip install -r requirements.txt
+sudo systemctl restart mywebsite-backend
 ```
 
 ### 3.2 更新前端
 
 ```bash
-cd /home/admin/program/MyWebsite/frontend
+cd /home/admin/program/MyWebsite/code/frontend
 npm ci
 npm run build
-rsync -av --delete /home/admin/program/MyWebsite/frontend/dist/ /home/admin/program/mywebsite-frontend/
-```
-
-### 3.3 重启并验证
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart mywebsite-backend
-sudo systemctl status mywebsite-backend --no-pager
-curl http://127.0.0.1:5000/api/programs
-curl -I http://your-domain.com
-```
-
-### 3.4 日志排查
-
-```bash
-sudo journalctl -u mywebsite-backend -n 100 --no-pager
-sudo journalctl -u mywebsite-backend -f
+rsync -av --delete dist/ /home/admin/program/MyWebsite/frontend-dist/
+sudo systemctl reload nginx
 ```
 
 ---
 
-## 4. 项目里已做的部署/调试适配优化
+## 4. 常用验证命令
 
-1. 后端环境化启动参数：`APP_HOST`、`APP_PORT`、`APP_DEBUG`、`SQLALCHEMY_DATABASE_URI`
-2. 反向代理适配：启用 `ProxyFix`
-3. Gunicorn 入口与配置：`backend/wsgi.py`、`deploy/gunicorn.conf.py`
-4. systemd 与 Nginx 模板：`deploy/mywebsite-backend.service`、`deploy/mywebsite.nginx.conf`
-5. 前端联调代理：`/api` 通过 Vite/Nginx 转发
-6. 博客时间统一 UTC 存储 + 前端本地时区展示
+```bash
+# 后端语法检查
+cd /home/admin/program/MyWebsite/code
+python -m compileall backend
+
+# 前端构建检查
+cd /home/admin/program/MyWebsite/code/frontend
+npm run build
+```
 
 ---
 
@@ -294,53 +255,41 @@ sudo journalctl -u mywebsite-backend -f
 
 ### 5.1 报错 `[Errno 98] Address already in use`
 
-端口 5000 被遗留 gunicorn 进程占用：
+端口被遗留进程占用：
 
 ```bash
 sudo fuser -k 5000/tcp
-```
-
-然后重启服务：
-
-```bash
 sudo systemctl restart mywebsite-backend
 ```
 
 ### 5.2 报错 `unable to open database file`
 
-常见原因：`SQLALCHEMY_DATABASE_URI` 写错，尤其是斜杠数量错误。
+通常原因：
 
-正确写法（绝对路径，4 个斜杠）：
+1. `SQLALCHEMY_DATABASE_URI` 写错（少写斜杠，必须是 4 个斜杠）
+2. 忘记手动创建 `database` 目录
+
+正确格式：
 
 ```bash
-sqlite:////home/admin/program/MyWebsiteDatabase/blog.db
+sqlite:////home/admin/program/MyWebsite/database/blog.db
 ```
 
-请同时检查：
+快速核对：
 
-- `MyWebsiteDatabase` 目录是否存在
-- 运行用户（`admin`）是否可写该目录
+```bash
+ls -ld /home/admin/program/MyWebsite/database
+sudo systemctl cat mywebsite-backend | grep SQLALCHEMY_DATABASE_URI
+```
 
-### 5.3 前端更新不生效
+### 5.3 前端更新后页面不变
 
 - 忘记执行 `npm run build`
-- 忘记同步 `dist` 到 `/home/admin/program/mywebsite-frontend`
+- 忘记 `rsync` 到 `/home/admin/program/MyWebsite/frontend-dist`
+- Nginx 未 reload
 
 ### 5.4 API 404/502
 
-- 检查 `mywebsite-backend` 服务状态
-- 检查 Nginx 的 `/api/` 反向代理是否正确并已 `reload`
-
----
-
-## 6. 开发校验命令
-
-```bash
-# 后端语法校验（项目根目录）
-cd /path/to/MyWebsite
-python -m compileall backend
-
-# 前端构建校验
-cd /path/to/MyWebsite/frontend
-npm run build
-```
+- 后端服务异常：`sudo systemctl status mywebsite-backend --no-pager`
+- 查看日志：`sudo journalctl -u mywebsite-backend -n 100 --no-pager`
+- 检查 Nginx `/api/` 反向代理目标
