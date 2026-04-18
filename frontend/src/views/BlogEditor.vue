@@ -31,7 +31,7 @@ watch(
   () => form.value.content,
   (markdownText) => {
     const currentVersion = ++previewVersionCounter.value
-    const parsed = marked.parse(markdownText ?? '', {
+    const parsed = marked.parse(markdownText, {
       gfm: true,
       breaks: true,
     })

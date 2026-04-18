@@ -18,7 +18,8 @@ watch(
   () => blog.value?.content ?? '',
   (markdownText) => {
     const currentVersion = ++latestRenderVersion.value
-    const parsed = marked.parse(markdownText, {
+    const safeMarkdownText = markdownText ?? ''
+    const parsed = marked.parse(safeMarkdownText, {
       gfm: true,
       breaks: true,
     })
