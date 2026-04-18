@@ -1,64 +1,12 @@
 from datetime import datetime, timezone
-import json
-from pathlib import Path
-from time import time
 
 from flask import Blueprint, jsonify, request
+from sqlalchemy.exc import IntegrityError
+
+from database.db import db
+from models.blog import Blog, Tag
 
 blog_bp = Blueprint("blog", __name__)
-
-BLOGS_FILE = Path(__file__).resolve().parent.parent / "blogs.json"
-
-
-def _default_blogs():
-    return [
-        {
-            "id": "welcome-blog",
-            "title": "欢迎来到站内博客",
-            "content": "这是博客示例数据，后续可以通过 API 增删改查。",
-            "tags": ["公告", "示例"],
-            "isFavorite": True,
-            "createdAt": "2026-04-12T00:00:00Z",
-            "updatedAt": "2026-04-12T00:00:00Z",
-        },
-        {
-            "id": "phase4-note",
-            "title": "阶段4后端接口完成说明",
-            "content": "本篇用于演示 Flask 博客 CRUD 接口的数据结构。",
-            "tags": ["Flask", "API"],
-            "isFavorite": False,
-            "createdAt": "2026-04-12T00:00:00Z",
-            "updatedAt": "2026-04-12T00:00:00Z",
-        },
-    ]
-
-
-def _save_blogs():
-    BLOGS_FILE.write_text(json.dumps(BLOGS, ensure_ascii=False, indent=2), encoding="utf-8")
-
-
-def _load_blogs():
-    if not BLOGS_FILE.exists():
-        return _default_blogs()
-
-    try:
-        data = json.loads(BLOGS_FILE.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
-        return _default_blogs()
-
-    return data if isinstance(data, list) else _default_blogs()
-
-
-BLOGS = _load_blogs()
-if not BLOGS_FILE.exists():
-    _save_blogs()
-
-
-def _get_blog_index(blog_id: str):
-    for index, blog in enumerate(BLOGS):
-        if blog.get("id") == blog_id:
-            return index
-    return None
 
 
 def _normalize_tags(tags):
@@ -69,13 +17,57 @@ def _normalize_tags(tags):
     return []
 
 
-def _now_iso():
-    return datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+def _to_iso(dt: datetime | None) -> str | None:
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
+
+
+def _serialize_blog(blog: Blog) -> dict:
+    return {
+        "id": blog.id,
+        "title": blog.title,
+        "content": blog.content,
+        "tags": [tag.name for tag in blog.tags],
+        "isFavorite": bool(blog.is_favorite),
+        "isPublished": bool(blog.is_published),
+        "views": int(blog.views or 0),
+        "createdAt": _to_iso(blog.created_at),
+        "updatedAt": _to_iso(blog.updated_at),
+    }
+
+
+def _resolve_tags(tags) -> list[Tag]:
+    names = list(dict.fromkeys(_normalize_tags(tags)))
+    if not names:
+        return []
+
+    existing_tags = Tag.query.filter(Tag.name.in_(names)).all()
+    existing_map = {tag.name: tag for tag in existing_tags}
+    resolved: list[Tag] = []
+
+    for name in names:
+        tag = existing_map.get(name)
+        if tag is None:
+            tag = Tag(name=name)
+            db.session.add(tag)
+        resolved.append(tag)
+    return resolved
+
+
+def _parse_blog_id(blog_id: str) -> int | None:
+    try:
+        return int(blog_id)
+    except (TypeError, ValueError):
+        return None
 
 
 @blog_bp.get("/blogs")
 def list_blogs():
-    return jsonify(BLOGS)
+    blogs = Blog.query.order_by(Blog.created_at.desc(), Blog.id.desc()).all()
+    return jsonify([_serialize_blog(blog) for blog in blogs])
 
 
 @blog_bp.get("/blog/")
@@ -89,18 +81,29 @@ def get_blog_by_query():
             }
         ), 400
 
-    blog_index = _get_blog_index(blog_id)
-    if blog_index is None:
+    blog_pk = _parse_blog_id(blog_id)
+    if blog_pk is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
-    return jsonify(BLOGS[blog_index])
+
+    blog = Blog.query.get(blog_pk)
+    if blog is None:
+        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+    return jsonify(_serialize_blog(blog))
 
 
 @blog_bp.get("/blog/<blog_id>")
 def get_blog(blog_id: str):
-    blog_index = _get_blog_index(blog_id)
-    if blog_index is None:
+    blog_pk = _parse_blog_id(blog_id)
+    if blog_pk is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
-    return jsonify(BLOGS[blog_index])
+
+    blog = Blog.query.get(blog_pk)
+    if blog is None:
+        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+
+    blog.views = int(blog.views or 0) + 1
+    db.session.commit()
+    return jsonify(_serialize_blog(blog))
 
 
 @blog_bp.post("/blog")
@@ -113,72 +116,85 @@ def create_blog():
     if not isinstance(title, str) or not title.strip():
         return jsonify({"error": "validation_error", "message": "字段 title 不能为空"}), 400
 
-    now = int(time() * 1000)
-    timestamp = _now_iso()
-    blog = {
-        "id": payload.get("id") if isinstance(payload.get("id"), str) and payload.get("id").strip() else f"blog-{now}",
-        "title": title.strip(),
-        "content": payload.get("content", "") if isinstance(payload.get("content"), str) else "",
-        "tags": _normalize_tags(payload.get("tags")),
-        "isFavorite": bool(payload.get("isFavorite", False)),
-        "createdAt": payload.get("createdAt") if isinstance(payload.get("createdAt"), str) else timestamp,
-        "updatedAt": payload.get("updatedAt") if isinstance(payload.get("updatedAt"), str) else timestamp,
-    }
-    BLOGS.insert(0, blog)
     try:
-        _save_blogs()
-    except OSError:
-        BLOGS.pop(0)
+        blog = Blog(
+            title=title.strip(),
+            content=payload.get("content", "") if isinstance(payload.get("content"), str) else "",
+            is_favorite=bool(payload.get("isFavorite", False)),
+            is_published=bool(payload.get("isPublished", False)),
+            views=int(payload.get("views", 0) or 0),
+        )
+        blog.tags = _resolve_tags(payload.get("tags"))
+        db.session.add(blog)
+        db.session.commit()
+    except (ValueError, TypeError, IntegrityError):
+        db.session.rollback()
         return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
-    return jsonify(blog), 201
+
+    return jsonify(_serialize_blog(blog)), 201
 
 
 @blog_bp.put("/blog/<blog_id>")
 def update_blog(blog_id: str):
-    blog_index = _get_blog_index(blog_id)
-    if blog_index is None:
+    blog_pk = _parse_blog_id(blog_id)
+    if blog_pk is None:
+        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+
+    blog = Blog.query.get(blog_pk)
+    if blog is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
     payload = request.get_json(silent=True)
     if not isinstance(payload, dict):
         return jsonify({"error": "invalid_json", "message": "请求体必须是 JSON 对象"}), 400
 
-    current_blog = BLOGS[blog_index]
-
     if "title" in payload:
         if not isinstance(payload["title"], str) or not payload["title"].strip():
             return jsonify({"error": "validation_error", "message": "字段 title 不能为空"}), 400
-        current_blog["title"] = payload["title"].strip()
+        blog.title = payload["title"].strip()
 
     if "content" in payload and isinstance(payload["content"], str):
-        current_blog["content"] = payload["content"]
+        blog.content = payload["content"]
 
     if "tags" in payload:
-        current_blog["tags"] = _normalize_tags(payload["tags"])
+        blog.tags = _resolve_tags(payload["tags"])
 
     if "isFavorite" in payload:
-        current_blog["isFavorite"] = bool(payload["isFavorite"])
+        blog.is_favorite = bool(payload["isFavorite"])
 
-    current_blog["updatedAt"] = _now_iso()
+    if "isPublished" in payload:
+        blog.is_published = bool(payload["isPublished"])
 
-    BLOGS[blog_index] = current_blog
+    if "views" in payload:
+        try:
+            blog.views = int(payload["views"] or 0)
+        except (TypeError, ValueError):
+            return jsonify({"error": "validation_error", "message": "字段 views 必须是数字"}), 400
+
     try:
-        _save_blogs()
-    except OSError:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
         return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
-    return jsonify(current_blog)
+
+    return jsonify(_serialize_blog(blog))
 
 
 @blog_bp.delete("/blog/<blog_id>")
 def delete_blog(blog_id: str):
-    blog_index = _get_blog_index(blog_id)
-    if blog_index is None:
+    blog_pk = _parse_blog_id(blog_id)
+    if blog_pk is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
-    deleted = BLOGS.pop(blog_index)
+    blog = Blog.query.get(blog_pk)
+    if blog is None:
+        return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
+
     try:
-        _save_blogs()
-    except OSError:
-        BLOGS.insert(blog_index, deleted)
+        deleted = _serialize_blog(blog)
+        db.session.delete(blog)
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
         return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
     return jsonify({"deleted": True, "blog": deleted})
