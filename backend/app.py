@@ -12,7 +12,8 @@ from routes.program import program_bp
 def create_app() -> Flask:
     app = Flask(__name__)
     app.config["JSON_AS_ASCII"] = False
-    db_path = Path(__file__).resolve().parent / "site.db"
+    default_db_path = Path(__file__).resolve().parent / "site.db"
+    db_path = Path(os.getenv("SQLITE_DB_PATH", str(default_db_path)))
     app.config["SQLALCHEMY_DATABASE_URI"] = f"sqlite:///{db_path}"
     app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
     app.wsgi_app = ProxyFix(app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_port=1)  # type: ignore[assignment]
