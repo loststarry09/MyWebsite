@@ -44,7 +44,7 @@
 
 - `frontend/src/api/index.js`  
   **当前仓库不存在该文件**。当前 axios 调用直接写在各 `views`（如 `Programs.vue`、`Fun.vue`）。
-  - 所以改 API 地址时，应先改这些页面内的 axios 调用。
+  - 需要切换后端地址时，优先通过 `VITE_API_PROXY_TARGET` 与 Nginx 代理调整，不建议直接改页面里的 `/api/*`。
 
 ### 后端（Flask）
 
@@ -52,13 +52,25 @@
   Flask 应用入口，注册蓝图到 `/api` 前缀。
   - API 总入口挂载位置看这里。
 
+- `backend/database/db.py`  
+  数据库初始化与自动建表入口（SQLite `blog.db`），并处理历史 JSON 博客迁移。
+  - 改数据库初始化、迁移逻辑、SQLite 参数时看这里。
+
+- `backend/models/blog.py`  
+  博客与标签的数据模型（SQLAlchemy）。
+  - 改字段结构（如新增字段）时，需同步路由序列化逻辑。
+
 - `backend/routes/program.py`  
   接口定义层（请求参数校验、HTTP 状态码、调用 service）。
   - 改“接口路径/参数/返回格式”，改这里。
 
 - `backend/services/runner.py`  
-  业务与数据层（读写 `data.json`、增删改查方法）。
-  - 改“数据来源/存储逻辑/执行逻辑”，改这里。
+  Program/Fun 的 JSON 数据读写层（`data.json`）。
+  - 改“程序与娱乐”数据来源/落盘逻辑，改这里。
+
+- `backend/routes/blog.py`  
+  博客 CRUD 路由层（基于 SQLAlchemy，不走 `runner.py`）。
+  - 改博客接口字段、校验、查询条件、返回格式，改这里。
 
 ---
 
@@ -91,6 +103,8 @@
   当前持久化数据文件（程序列表与娱乐项）
 - `backend/routes/blog.py`  
   博客 CRUD 接口与时间字段（`createdAt` / `updatedAt`）生成逻辑（UTC）
+- `backend/database/db.py`、`backend/models/blog.py`  
+  博客数据库初始化与模型定义（SQLite + SQLAlchemy）
 
 ## 博客时间显示规则（新增）
 
@@ -153,33 +167,25 @@
 
 ### 3）修改 API 基础地址（localhost → 服务器）
 
-- 文件路径（当前实际调用点）：
-  - `/path/to/MyWebsiteV1.1/frontend/src/views/Programs.vue`
-  - `/path/to/MyWebsiteV1.1/frontend/src/views/Fun.vue`
-- 修改位置：`axios.get/axios.post` 的 URL 参数
+- 推荐方式：**保持前端代码使用相对路径 `/api/*` 不变**，通过代理层切换目标地址。
+- 本地开发：
+  - 临时切换代理目标：
+    - `VITE_API_PROXY_TARGET=http://127.0.0.1:5000 npm run dev`
+  - 若后端在其他主机，替换为对应地址即可。
+- 生产环境：
+  - 修改 Nginx 的 `location /api/` 反向代理到后端服务。
+- 不推荐在页面里把 `/api/*` 硬编码成完整域名（会增加环境切换成本）。
 
 ```js
-// Programs.vue 修改前
+// 当前推荐写法（保留相对路径）
 await axios.get('/api/programs')
 await axios.post('/api/program', payload)
 ```
 
 ```js
-// Programs.vue 修改后（示例）
-await axios.get('https://api.your-domain.com/api/programs')
-await axios.post('https://api.your-domain.com/api/program', payload)
-```
-
-```js
-// Fun.vue 修改前
+// Fun.vue 同理
 await axios.get('/api/fun')
 await axios.post('/api/fun', payload)
-```
-
-```js
-// Fun.vue 修改后（示例）
-await axios.get('https://api.your-domain.com/api/fun')
-await axios.post('https://api.your-domain.com/api/fun', payload)
 ```
 
 ### 4）添加一个新项目（两种方式）
@@ -235,6 +241,8 @@ export const programs = [
   - 数据逻辑：`/path/to/MyWebsiteV1.1/backend/services/runner.py`
   - 数据落盘：`/path/to/MyWebsiteV1.1/backend/data.json`
 - 修改位置：调用现有 `POST /api/program`，或直接写入 `data.json` 的 `programs` 数组
+- 重要说明：`Programs.vue` 列表页可读取后端数据，但 `ProgramDetail.vue` 详情页当前读取 `frontend/src/data/programs.js` 静态数据。
+  - 若你希望“后端新增项目”也能进入详情页，需要同步改 `ProgramDetail.vue` 的数据来源。
 
 ```json
 // data.json 修改前（节选）
@@ -307,12 +315,22 @@ body {
 
 ## 五、前后端交互说明（简洁版）
 
+### Program/Fun 请求链路
+
 1. Vue 页面触发请求（如 `Programs.vue` 的 `axios.get('/api/programs')`）  
 2. 请求进入 Flask：`app.py` 把蓝图挂载在 `/api`  
 3. 路由层 `routes/program.py` 匹配接口并校验参数  
 4. 调用 `services/runner.py` 读写内存 + `data.json`  
-5. Flask `jsonify(...)` 返回 JSON  
+5. Flask 返回 JSON  
 6. Vue 收到数据后更新 `ref`/`computed`，模板自动渲染
+
+### Blog 请求链路
+
+1. Vue 页面触发请求（如 `BlogList.vue` 的 `axios.get('/api/blog')`）  
+2. 请求进入 `routes/blog.py`  
+3. 使用 SQLAlchemy 访问 SQLite（`backend/blog.db`）  
+4. 路由层完成字段校验、序列化与统一响应  
+5. Vue 端据响应渲染列表/详情/编辑状态
 
 ---
 
@@ -329,12 +347,34 @@ body {
 ## 后端
 
 - 启动：  
-  `cd /path/to/MyWebsiteV1.1/backend && python app.py`
-- 修改后：**当前启动方式下通常需要手动重启**（未配置热重载）
+  `cd /path/to/MyWebsiteV1.1/backend && APP_DEBUG=1 python app.py`
+- 修改后：
+  - `APP_DEBUG=1` 时，Flask 开发服务支持自动重载
+  - 生产环境（Gunicorn/systemd）修改后需 `sudo systemctl restart mywebsite-backend`
 
 ---
 
-## 七、常见问题（简洁版）
+## 七、修改后自检清单（推荐每次都跑）
+
+```bash
+# 项目根目录
+cd /path/to/MyWebsiteV1.1
+python -m compileall backend
+
+# 前端构建校验
+cd /path/to/MyWebsiteV1.1/frontend
+npm run build
+```
+
+浏览器/接口人工校验：
+
+- 关键页面可打开（`/`、`/programs`、`/fun`、`/blog`）
+- 关键接口可返回（`/api/programs`、`/api/fun`、`/api/blog`）
+- 新增/编辑功能至少手动走一遍（项目新增、娱乐新增、博客新增/编辑）
+
+---
+
+## 八、常见问题（简洁版）
 
 - 修改未生效  
   - 前端：确认 dev 服务在跑；生产环境确认已重新 `npm run build` 并替换静态文件  
