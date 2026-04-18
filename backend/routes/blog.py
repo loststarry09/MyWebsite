@@ -105,8 +105,9 @@ def get_blog(blog_id: str):
     if blog is None:
         return jsonify({"error": "not_found", "message": f"Blog '{blog_id}' not found"}), 404
 
-    blog.views = int(blog.views or 0) + 1
+    db.session.query(Blog).filter(Blog.id == blog_pk).update({Blog.views: Blog.views + 1})
     db.session.commit()
+    db.session.refresh(blog)
     return jsonify(_serialize_blog(blog))
 
 
@@ -120,18 +121,24 @@ def create_blog():
     if not isinstance(title, str) or not title.strip():
         return jsonify({"error": "validation_error", "message": "字段 title 不能为空"}), 400
 
+    views_value = payload.get("views", 0)
+    try:
+        views = int(views_value or 0)
+    except (ValueError, TypeError):
+        return jsonify({"error": "validation_error", "message": "字段 views 必须是数字"}), 400
+
     try:
         blog = Blog(
             title=title.strip(),
             content=payload.get("content", "") if isinstance(payload.get("content"), str) else "",
             is_favorite=bool(payload.get("isFavorite", False)),
             is_published=bool(payload.get("isPublished", False)),
-            views=int(payload.get("views", 0) or 0),
+            views=views,
         )
         blog.tags = _resolve_tags(payload.get("tags"))
         db.session.add(blog)
         db.session.commit()
-    except (ValueError, TypeError, IntegrityError):
+    except IntegrityError:
         db.session.rollback()
         return jsonify({"error": "persist_failed", "message": "博客保存失败，请稍后重试"}), 500
 
