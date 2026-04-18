@@ -275,7 +275,7 @@ npm run build
 ```
 
 ```bash
-rsync -av --delete /path/to/MyWebsite/frontend/dist/ /var/www/mywebsite-frontend/
+rsync -av --delete /var/www/MyWebsite/frontend/dist/ /var/www/mywebsite-frontend/
 ```
 
 用途：先本地生成最新 `dist`，再覆盖服务器静态目录。  
