@@ -11,7 +11,7 @@
 
 当你克隆下代码后，整个项目分为两个完全独立的宇宙：
 *   **`frontend/` (前端)**：用户的脸面。基于 Vue 3 (Composition API) + Vite + Tailwind CSS。负责长得好看、响应点击、展示数据。
-*   **`backend/` (后��)**：幕后的大脑。基于 FastAPI + SQLAlchemy + SQLite。负责操作数据库、处理逻辑、保存图片。
+*   **`backend/` (后端)**：幕后的大脑。基于 FastAPI + SQLAlchemy + SQLite。负责操作数据库、处理逻辑、保存图片。
 
 ### 🔄 一个请求的旅行路线
 当用户在浏览器点击“查看博客”时，发生了什么？
