@@ -1,345 +1,170 @@
 # MyWebsite
 
-前后端分离项目：
+前后端分离个人网站项目（V1.4.1）：
 
 - 前端：Vue 3 + Vite + Tailwind（`frontend/`）
-- 后端：Flask（`backend/`）
-- API 前缀：`/api`
+- 后端：FastAPI + Pydantic + Uvicorn（`backend/`）
+- 数据库：SQLite
+- API 文档：`/docs`、`/redoc`
 
 ---
 
-## 1. 本地开发（兼顾联调）
+## 1. 项目定位
 
-> 以下示例中，项目目录统一以 `MyWebsite` 命名。
+MyWebsite 不再只是“轻量博客”，而是一个可持续演进的现代全栈项目：
 
-### 1.1 环境准备（Windows 11）
+- 前端负责展示与交互
+- FastAPI 负责 API 与业务编排
+- SQLite 负责轻量持久化
+- Nginx 负责静态直出与反向代理
 
-- 安装 Python 3.10+（勾选 `Add python.exe to PATH`）
-- 安装 Node.js 18+（建议 LTS）
-- 使用 PowerShell 7 或 Windows PowerShell
+核心目标：简单、稳定、可维护。
 
-### 1.2 启动后端（Windows PowerShell）
+---
 
-```powershell
-cd C:\dev\MyWebsite\backend
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-$env:APP_DEBUG="1"
-$env:APP_HOST="127.0.0.1"
-$env:APP_PORT="5000"
-$env:SQLALCHEMY_DATABASE_URI="sqlite:///blog.db"
-python app.py
+## 2. 核心特性（V1.4.1）
+
+- 极致轻量化：SQLite + FastAPI，低资源占用即可稳定运行
+- FastAPI + Pydantic 提供类型安全的数据校验与更清晰的接口边界
+- 自带现代化 API 文档：`/docs` 与 `/redoc`
+- 基于用户家目录隔离部署（User-level Deployment），彻底规避 `/var/www/` 权限混乱
+- 基于用户家目录隔离的本地图床（`uploads/` 持久化 + Nginx 直出）
+- 全局配置中心（`backend/config.py`）统一管理数据库与上传路径
+
+---
+
+## 3. 目录结构（开发仓库）
+
+```text
+/path/to/MyWebsite/
+├── backend/
+├── deploy/
+├── frontend/
+├── README.md
+└── Guidance.md
 ```
 
-> 本地开发可使用相对路径 `sqlite:///blog.db`；生产环境使用绝对路径时必须写成 `sqlite:////...`（4 个斜杠）。
+> 生产环境建议采用 5 目录物理隔离：`code/`、`database/`、`logs/`、`frontend-dist/`、`uploads/`（详见 `Guidance.md`）。
 
-后端校验：
+---
 
-```powershell
-curl http://127.0.0.1:5000/api/programs
-```
+## 4. 本地开发（稍详细）
 
-### 1.3 启动前端（Windows PowerShell）
+### 4.1 环境准备
 
-```powershell
-cd C:\dev\MyWebsite\frontend
-npm ci
-npm run dev
-```
+- Python 3.10+（建议 3.11）
+- Node.js 18+（建议 20+）
+- npm 9+
 
-### 1.4 环境准备（Ubuntu 24.04，可选）
+### 4.2 启动后端（FastAPI）
 
-```bash
-sudo apt update
-sudo apt install -y git python3 python3-venv python3-pip nodejs npm nginx rsync psmisc
-```
-
-> 建议 Python 3.10+，Node 18+。
-
-### 1.5 启动后端（Ubuntu）
+> 建议在一个独立终端执行。
 
 ```bash
 cd /path/to/MyWebsite/backend
 python3 -m venv .venv
 source .venv/bin/activate
+pip install --upgrade pip
 pip install -r requirements.txt
-APP_DEBUG=1 APP_HOST=0.0.0.0 APP_PORT=5000 SQLALCHEMY_DATABASE_URI=sqlite:///blog.db python app.py
+MYWEBSITE_BASE_PATH=/path/to/MyWebsite uvicorn main:app --host 127.0.0.1 --port 5000 --reload
 ```
 
-### 1.6 启动前端（Ubuntu）
+说明：
+
+- `MYWEBSITE_BASE_PATH` 在本地开发时建议显式指定到仓库根目录，避免默认落到生产路径 `/home/admin/program/MyWebsite`
+- 后端 API 与文档地址：
+  - http://127.0.0.1:5000/api/ping
+  - http://127.0.0.1:5000/docs
+  - http://127.0.0.1:5000/redoc
+
+### 4.3 启动前端（Vue + Vite）
+
+> 在另一个终端执行。
 
 ```bash
 cd /path/to/MyWebsite/frontend
-npm ci
+npm install
 npm run dev
 ```
 
+默认开发地址（Vite）：http://127.0.0.1:5173  
+默认会把 `/api` 请求代理到 `http://127.0.0.1:5000`。
+
 ---
 
-## 2. Ubuntu 24.04 生产部署（Gunicorn + Nginx + systemd）
-
-### 前置说明（务必先读）
-
-本项目采用 **用户目录部署方案（User-level Deployment）**，并使用“代码、数据、日志、静态产物、上传目录”隔离结构，显著降低权限冲突风险。
-
-本文示例以 `admin` 用户为例，统一工作区如下：
-
-- 工作区根目录：`/home/admin/program/MyWebsite`
-- 源代码目录：`/home/admin/program/MyWebsite/code`
-- 数据库目录：`/home/admin/program/MyWebsite/database`
-- 日志目录：`/home/admin/program/MyWebsite/logs`
-- 前端静态目录：`/home/admin/program/MyWebsite/frontend-dist`
-- 上传文件目录：`/home/admin/program/MyWebsite/uploads`
-
-> `admin` 为示例用户名，请替换为你的真实系统用户名。
-
-### 2.1 拉取代码与依赖
-
-创建工作区并克隆代码（普通用户执行）：
+## 5. 前端部署流闭环（标准防呆）
 
 ```bash
-mkdir -p /home/admin/program/MyWebsite
-cd /home/admin/program/MyWebsite
-git clone <your-repo-url> code
-```
-
-创建运行时目录：
-
-```bash
-cd /home/admin/program/MyWebsite
-mkdir -p database logs frontend-dist uploads
-```
-
-**重要：GitHub 仓库只包含源码，不包含 `database`、`logs`、`frontend-dist`、`uploads` 这些运行时目录，必须手动创建。Flask 在首次启动时会在 `database` 目录自动生成 `blog.db`。**
-
-**强烈警告：请使用普通用户直接执行 `mkdir` 创建 `database` 目录，绝不要加 `sudo`，否则极易导致目录/数据库归属变为 `root`，引发后端写入失败。**
-
-安装后端依赖：
-
-```bash
-cd /home/admin/program/MyWebsite/code/backend
-python3 -m venv .venv
-source .venv/bin/activate
-pip install --upgrade pip
-pip install -r requirements.txt
-```
-
-构建并发布前端静态文件：
-
-```bash
-cd /home/admin/program/MyWebsite/code/frontend
-npm ci
+cd /path/to/MyWebsite/frontend
+npm install
 npm run build
-rsync -av --delete dist/ /home/admin/program/MyWebsite/frontend-dist/
-```
-
-### 2.2 手动验证 Gunicorn
-
-```bash
-cd /home/admin/program/MyWebsite/code/backend
-source .venv/bin/activate
-APP_DEBUG=0 SQLALCHEMY_DATABASE_URI="sqlite:////home/admin/program/MyWebsite/database/blog.db" \
-.venv/bin/gunicorn -c /home/admin/program/MyWebsite/code/deploy/gunicorn.conf.py wsgi:app
-```
-
-另开终端验证：
-
-```bash
-curl http://127.0.0.1:5000/api/programs
-```
-
-### 2.3 配置 systemd
-
-复制服务模板：
-
-```bash
-sudo cp /home/admin/program/MyWebsite/code/deploy/mywebsite-backend.service /etc/systemd/system/mywebsite-backend.service
-sudo nano /etc/systemd/system/mywebsite-backend.service
-```
-
-请确认关键项：
-
-- `User=admin`
-- `Group=admin`
-- `WorkingDirectory=/home/admin/program/MyWebsite/code/backend`
-- `ExecStart=/home/admin/program/MyWebsite/code/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/code/deploy/gunicorn.conf.py wsgi:app`
-- **`Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsite/database/blog.db"`**
-
-> **注意：SQLite 绝对路径必须使用 `sqlite:////`（4 个斜杠）。**
-
-启动并设为开机自启：
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable mywebsite-backend
-sudo systemctl restart mywebsite-backend
-sudo systemctl status mywebsite-backend --no-pager
-```
-
-查看日志：
-
-```bash
-sudo journalctl -u mywebsite-backend -f
-```
-
-### 2.4 配置 Nginx
-
-```bash
-sudo cp /home/admin/program/MyWebsite/code/deploy/mywebsite.nginx.conf /etc/nginx/sites-available/mywebsite
-sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
-sudo rm -f /etc/nginx/sites-enabled/default
-```
-
-为确保 Nginx（`www-data`）可穿透用户目录读取静态文件，请执行：
-
-```bash
-chmod +x /home/admin /home/admin/program /home/admin/program/MyWebsite
-```
-
-> 上述目录缺少执行权限（x）时，Nginx 即使有文件读权限也无法进入目录链路。
-
-按需修改站点配置并生效：
-
-```bash
-sudo nano /etc/nginx/sites-available/mywebsite
-```
-
-在 `/etc/nginx/sites-available/mywebsite` 的 `server { ... }` 中新增上传目录静态映射（绕过 Flask）：
-
-```nginx
-location /uploads/ {
-    alias /home/admin/program/MyWebsite/uploads/;
-    expires 30d;
-    add_header Cache-Control "public, max-age=2592000, immutable";
-    access_log off;
-    try_files $uri =404;
-}
-```
-
-并确保目录可读取（示例）：
-
-```bash
-mkdir -p /home/admin/program/MyWebsite/uploads
-chmod 755 /home/admin/program/MyWebsite/uploads
-```
-
-测试配置并平滑重载：
-
-```bash
-sudo nginx -t
-sudo systemctl enable nginx
-sudo systemctl reload nginx
-```
-
-### 2.5 HTTPS（推荐）
-
-```bash
-sudo apt install -y certbot python3-certbot-nginx
-sudo certbot --nginx -d your-domain.com
+cp -r dist/* ../frontend-dist/
 ```
 
 ---
 
-## 3. 项目更新与发布流程
+## 6. 生产部署（先看这里）
 
-### 3.1 更新后端
+生产环境部署请**务必先完整阅读**：
 
-```bash
-cd /home/admin/program/MyWebsite/code
-git pull
-cd /home/admin/program/MyWebsite/code/backend
-source .venv/bin/activate
-pip install -r requirements.txt
-sudo systemctl restart mywebsite-backend
-```
+- `Guidance.md`
 
-### 3.2 更新前端
+推荐采用“极简无痛流”部署模型：
 
-```bash
-cd /home/admin/program/MyWebsite/code/frontend
-npm ci
-npm run build
-rsync -av --delete dist/ /home/admin/program/MyWebsite/frontend-dist/
-sudo systemctl reload nginx
-```
+- 禁止使用 `/var/www` 承载业务
+- 统一使用用户目录（示例：`/home/admin/program/MyWebsite`）
+- 采用 5 目录平级隔离（代码/数据库/日志/前端产物/上传文件）
 
----
+运行组合：
 
-## 4. 常用验证命令
+- FastAPI 进程：Gunicorn + Uvicorn Worker
+- 反向代理：Nginx
+- 守护：systemd
+
+标准生产启动命令：
 
 ```bash
-# 后端语法检查
-cd /home/admin/program/MyWebsite/code
-python -m compileall backend
-
-# 前端构建检查
-cd /home/admin/program/MyWebsite/code/frontend
-npm run build
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:5000
 ```
 
 ---
 
-## 5. 常见故障排查
+## 7. Nginx 关键原则
 
-### 5.1 报错 `[Errno 98] Address already in use`
+- `frontend-dist/` 由 Nginx 直接服务（SPA）
+- `uploads/` 由 Nginx 静态映射直出
+- `/api/` 代理到 FastAPI（127.0.0.1:5000）
 
-端口被遗留进程占用：
+这样可以让静态内容和上传资源绕过 Python 进程，提高吞吐并降低后端负载。
 
-```bash
-sudo fuser -k 5000/tcp
-sudo systemctl restart mywebsite-backend
-```
+---
 
-### 5.2 报错 `unable to open database file`
+## 8. 常见问题速查
 
-通常原因：
+### 6.1 SQLite 路径写法错误
 
-1. `SQLALCHEMY_DATABASE_URI` 写错（少写斜杠，必须是 4 个斜杠）
-2. 忘记手动创建 `database` 目录
+生产绝对路径必须为 4 斜杠：
 
-正确格式：
-
-```bash
+```text
 sqlite:////home/admin/program/MyWebsite/database/blog.db
 ```
 
-快速核对：
+### 6.2 数据库只读报错
 
-```bash
-ls -ld /home/admin/program/MyWebsite/database
-sudo systemctl cat mywebsite-backend | grep SQLALCHEMY_DATABASE_URI
-```
+报错：`attempt to write a readonly database`
 
-### 5.3 报错 `attempt to write a readonly database`
+通常是目录/文件归属错误（例如被 root 创建），修复时需同时检查：
 
-报错现象：
+- `database/` 目录写权限
+- 数据库文件 owner/group
 
-- 发布/保存博客时失败
-- 后端日志出现：`sqlalchemy.exc.OperationalError: (sqlite3.OperationalError) attempt to write a readonly database`
+### 6.3 服务启动方式不兼容
 
-原因剖析：
+FastAPI 生产环境请使用 Gunicorn + Uvicorn Worker，避免使用旧 Flask 启动方式。
 
-- 常见于曾使用 `sudo` 手动创建 `database` 目录，或用 `sudo` 运行过 SQLite 调试脚本
-- 导致 `/home/admin/program/MyWebsite/database` 与 `blog.db` 所有者变成 `root`
-- Gunicorn 以普通用户（如 `admin`）运行时只读不可写，从而触发该错误
+---
 
-修复命令（以 `admin` 用户为例）：
+## 9. 文档说明
 
-```bash
-sudo chown -R admin:admin /home/admin/program/MyWebsite/database
-sudo chmod -R 775 /home/admin/program/MyWebsite/database
-sudo systemctl restart mywebsite-backend
-```
-
-### 5.4 前端更新后页面不变
-
-- 忘记执行 `npm run build`
-- 忘记 `rsync` 到 `/home/admin/program/MyWebsite/frontend-dist`
-- Nginx 未 reload
-
-### 5.5 API 404/502
-
-- 后端服务异常：`sudo systemctl status mywebsite-backend --no-pager`
-- 查看日志：`sudo journalctl -u mywebsite-backend -n 100 --no-pager`
-- 检查 Nginx `/api/` 反向代理目标
+- `README.md`：对外/开发者快速上手与架构概览
+- `Guidance.md`：内部部署手册与避坑宝典（含保姆级生产部署教程，运维必读）
