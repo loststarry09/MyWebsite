@@ -1,194 +1,313 @@
-# 源码结构与修改指南（解耦部署 + Markdown 渲染链路）
+# Guidance.md
 
-> 目标：让维护者快速理解 `/home/admin/program/MyWebsite/` 下的物理隔离架构，并准确修改前端 Markdown 渲染逻辑。
-
----
-
-## 一、全局路径与部署约定
-
-统一工作区（示例用户：admin）：`/home/admin/program/MyWebsite/`
-
-- 源代码路径：`/home/admin/program/MyWebsite/code/`
-- 数据库存放：`/home/admin/program/MyWebsite/database/`
-- 日志目录：`/home/admin/program/MyWebsite/logs/`
-- 前端静态产物：`/home/admin/program/MyWebsite/frontend-dist/`
-- 上传文件目录：`/home/admin/program/MyWebsite/uploads/`
-
-> 文档中涉及源码路径时，统一使用 `/home/admin/program/MyWebsite/code/`，不再使用旧的 `/path/to/MyWebsite/` 或 `/var/www/...` 写法。
+> MyWebsite 内部架构手册与避坑指南（V1.4）  
+> 后端已从 Flask 全量迁移到 FastAPI，并延续 V1.2 本地图床方案。
 
 ---
 
-## 二、项目结构
+## 1. 文档目标与适用范围
 
-### 2.1 代码目录速览（`/home/admin/program/MyWebsite/code/`）
+本手册用于团队内部维护与部署，核心目标：
 
-前端核心：
-
-- `frontend/src/views/`：页面逻辑（Home、Programs、Fun、Blog*）
-- `frontend/src/components/`：复用组件
-- `frontend/src/router/index.js`：前端路由
-- `frontend/src/utils/markdown.js`：Markdown 渲染与净化核心
-
-后端核心：
-
-- `backend/app.py`：Flask 启动与蓝图注册
-- `backend/routes/blog.py`：博客 CRUD API
-- `backend/routes/program.py`：Program/Fun API
-- `backend/database/db.py`：SQLAlchemy 初始化、SQLite 校验、建表与迁移
-- `backend/models/blog.py`：博客模型
-- `backend/services/runner.py`：Program/Fun JSON 数据处理
-
-### 2.2 服务器部署物理拓扑
-
-工作区采用五目录平级解耦：
-
-- `code/`：仅存放 Git 管理的源代码与部署脚本
-- `database/`：仅存放 SQLite 数据文件（`blog.db`）
-- `logs/`：仅存放 Gunicorn/应用运行日志
-- `frontend-dist/`：仅存放前端构建产物（Nginx 直接挂载）
-- `uploads/`：仅存放用户上传图片（Nginx 直出，绕过 Flask）
-
-关键收益：
-
-- `blog.db` 被剥离到 `database/` 后，后续无论 `git pull`、回滚代码，甚至误执行 `rm -rf code`，用户数据仍安全保留。
-- 代码、数据、日志权限边界清晰，排障与运维成本显著降低。
+- 统一 MyWebsite 的部署理念与目录规范
+- 固化 FastAPI 时代的运行方式（Gunicorn + Uvicorn Worker）
+- 记录历史踩坑与防呆机制，降低维护风险
+- 保证“极简无痛流”可复制、可扩展、可长期演进
 
 ---
 
-## 三、后端与数据库运行约束
+## 2. “极简无痛流”核心理念
 
-数据库文件固定路径：
+### 2.1 一条红线：彻底不用 `/var/www/`
 
-- `/home/admin/program/MyWebsite/database/blog.db`
+历史经验表明，把业务代码和 Nginx 默认目录绑定，会导致：
 
-systemd 必配项：
+- 权限管理混乱（root / nginx / deploy 用户交叉）
+- 数据与代码混放，迁移与备份复杂
+- 故障定位困难（日志、数据库、静态资源分散）
 
-- `User=admin`
-- `Group=admin`
-- `WorkingDirectory=/home/admin/program/MyWebsite/code/backend`
-- `ExecStart=/home/admin/program/MyWebsite/code/backend/.venv/bin/gunicorn -c /home/admin/program/MyWebsite/code/deploy/gunicorn.conf.py wsgi:app`
-- `Environment="SQLALCHEMY_DATABASE_URI=sqlite:////home/admin/program/MyWebsite/database/blog.db"`
-
-> SQLite 绝对路径 URI 必须是 `sqlite:////`（4 个斜杠）。
+**结论：MyWebsite 永久采用用户家目录隔离部署（User-level Deployment）。**
 
 ---
 
-## 四、前端关键目录与修改入口
+## 3. 最新 5 大平级目录结构（必须遵守）
 
-- 页面与交互：`/home/admin/program/MyWebsite/code/frontend/src/views/*.vue`
-- 路由：`/home/admin/program/MyWebsite/code/frontend/src/router/index.js`
-- 全局样式：`/home/admin/program/MyWebsite/code/frontend/src/style.css`
-- Markdown 渲染统一入口：`/home/admin/program/MyWebsite/code/frontend/src/utils/markdown.js`
+统一工作区（示例）：
 
----
-
-## 五、前后端交互说明
-
-### 5.1 Program/Fun
-
-`Vue 页面` → `/api/*` → `routes/program.py` → `services/runner.py` → `backend/data.json`
-
-### 5.2 Blog
-
-`Vue 页面` → `/api/blog*` → `routes/blog.py` → SQLAlchemy → `database/blog.db`
-
----
-
-## 六、Markdown 渲染与高亮机制
-
-### 6.1 解析与防御
-
-1. 后端只返回 Markdown 纯文本（不返回已拼接的危险 HTML）。
-2. 前端使用 `marked` 将 Markdown 解析为 HTML。
-3. 解析结果立即进入 `DOMPurify.sanitize(...)` 进行净化。
-4. 净化后的结果再通过 `v-html` 渲染到页面。
-
-### 6.2 防 XSS 与高亮共存的关键点
-
-- `highlight.js` 会为代码片段注入 `hljs` 等 `class`。
-- 若 `DOMPurify` 不允许 `class`，这些高亮类会被清洗掉，最终“有代码块但无高亮”。
-- 因此必须确保净化配置保留 `class`（可用 `ADD_ATTR: ['class']`，或与当前实现一致在 `ALLOWED_ATTR` 中包含 `class`）。
-
-### 6.3 样式与冲突处理
-
-- 外层统一使用 Tailwind Typography 的 `.prose` 托管正文排版。
-- `.prose` 会影响 `<pre>` 默认样式，可能覆盖代码块背景色。
-- 在 Vue 组件使用 `<style scoped>` + `:deep(.prose pre)` 并配合 `!important` 强制覆写背景（如 `#1f2937`），即可稳定呈现深色代码块。
-- 建议同时保留 `:deep(.prose pre code)` 的透明背景覆写，避免双层背景冲突。
-
----
-
-## 七、开发与发布自检
-
-```bash
-# 后端语法检查
-cd /home/admin/program/MyWebsite/code/
-python -m compileall backend
-
-# 前端构建检查
-cd /home/admin/program/MyWebsite/code/frontend
-npm run build
+```text
+/home/admin/program/MyWebsite/
+├── code/           # Git 源代码（前后端工程）
+├── database/       # SQLite 物理隔离目录
+├── logs/           # 运行日志（gunicorn / app）
+├── frontend-dist/  # 前端构建产物（Nginx 直接服务）
+└── uploads/        # 本地图床持久化目录（Nginx 直接穿透）
 ```
 
-部署后核对：
+### 目录职责说明
 
-```bash
-sudo systemctl status mywebsite-backend --no-pager
-curl http://127.0.0.1:5000/api/programs
-curl -I http://your-domain.com
-```
+1. `code/`  
+   - 仅存放源码，不放数据库、不放运行日志、不放用户上传文件  
+   - 允许随时 `git pull`、回滚、替换
+
+2. `database/`  
+   - 仅存放 SQLite 文件，如 `my_website.db`
+   - 与代码物理隔离，避免覆盖风险
+
+3. `logs/`  
+   - 统一记录应用运行日志、错误日志
+   - 便于 systemd / 运维排障
+
+4. `frontend-dist/`  
+   - 仅存放 `npm run build` 产物
+   - 由 Nginx 直接返回静态内容，避免 FastAPI 参与静态文件分发
+
+5. `uploads/`  
+   - 本地图床持久化目录（V1.2 引入）
+   - 由 Nginx 直接读取，绕过 FastAPI，提高访问效率并降低后端负载
 
 ---
 
-## 八、Nginx 上传静态映射（生产）
+## 4. 运行架构（V1.4）
 
-在 `/etc/nginx/sites-available/mywebsite` 的 `server { ... }` 中新增：
+- 前端：Vue 3 + Vite + Tailwind CSS
+- 后端：FastAPI + Pydantic + SQLAlchemy + SQLite
+- 进程：Gunicorn + Uvicorn Worker
+- 守护：systemd
+- 网关：Nginx
+- 系统：Ubuntu 24.04
+
+请求流：
+
+1. 浏览器请求静态页面 → Nginx 直接读 `frontend-dist/`
+2. 浏览器请求图片资源（uploads）→ Nginx 直接读 `uploads/`
+3. 浏览器请求 API → Nginx 反向代理到 `127.0.0.1:5000`（FastAPI/Gunicorn）
+
+---
+
+## 5. Nginx 穿透配置逻辑（重点）
+
+目标：让静态资源与上传资源直接由 Nginx 返回，绕过 FastAPI。
+
+## 5.1 关键原则
+
+- `frontend-dist/`：前端静态站点根目录
+- `/uploads/`：映射到持久化上传目录
+- `/api/`（或约定 API 前缀）：代理到 FastAPI
+- 所有静态访问不经过 Python 进程，提升吞吐与稳定性
+
+## 5.2 参考配置（按实际域名修改）
 
 ```nginx
-location /uploads/ {
-    alias /home/admin/program/MyWebsite/uploads/;
-    expires 30d;
-    add_header Cache-Control "public, max-age=2592000, immutable";
-    access_log off;
-    try_files $uri =404;
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    # 1) 前端静态资源（SPA）
+    root /home/admin/program/MyWebsite/frontend-dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # 2) 本地图床穿透（直接读 uploads）
+    location /uploads/ {
+        alias /home/admin/program/MyWebsite/uploads/;
+        access_log off;
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
+    }
+
+    # 3) API 反向代理到 FastAPI
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
 }
 ```
 
-并执行：
+> 说明：  
+> - 若后端未使用 `/api` 前缀，可按实际路由调整 location。  
+> - `alias` 结尾斜杠必须与 location 规范匹配，避免路径拼接错误。  
+
+---
+
+## 6. systemd + Gunicorn + Uvicorn Worker（重点）
+
+FastAPI 生产启动命令必须使用：
 
 ```bash
-mkdir -p /home/admin/program/MyWebsite/uploads
-chmod 755 /home/admin/program/MyWebsite/uploads
-sudo nginx -t
-sudo systemctl reload nginx
+gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:5000
+```
+
+## 6.1 参考 systemd 服务文件
+
+路径：`/etc/systemd/system/mywebsite.service`
+
+```ini
+[Unit]
+Description=MyWebsite FastAPI Service
+After=network.target
+
+[Service]
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/program/MyWebsite/code/backend
+Environment="PATH=/home/admin/program/MyWebsite/code/backend/.venv/bin"
+ExecStart=/home/admin/program/MyWebsite/code/backend/.venv/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:5000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+```
+
+## 6.2 常用管理命令
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable mywebsite
+sudo systemctl restart mywebsite
+sudo systemctl status mywebsite
+journalctl -u mywebsite -f
 ```
 
 ---
 
-## 九、常见问题速查
+## 7. 历史踩坑与防呆机制（避坑宝典）
 
-- `Address already in use`
-  - `sudo fuser -k 5000/tcp`
-  - `sudo systemctl restart mywebsite-backend`
+## 7.1 SSH / Git 权限坑
 
-- `unable to open database file`
-  - 检查 URI 是否为 `sqlite:////...`（4 斜杠）
-  - 检查 `database/` 目录是否已创建且可写
+### 症状
+- `Permission denied (publickey)`
+- `git pull` 失败，或仓库目录 owner 混乱
 
-- `attempt to write a readonly database`
-  - 检查 `database/` 与 `blog.db` 所有者是否为运行用户（如 `admin`）
-  - 避免使用 `sudo` 创建或调试数据库目录
+### 根因
+- 使用 root 生成 SSH 密钥或拉代码
+- 项目目录归属 root，admin 无法正常维护
 
-- Nginx 读不到静态文件
-  - 确认已执行：`chmod +x /home/admin /home/admin/program /home/admin/program/MyWebsite`
-  - 上传图片直出失败时，核对 `location /uploads/` 的 `alias` 路径是否带尾部 `/`
-  - 核对 `/home/admin/program/MyWebsite/uploads` 目录权限与文件可读权限
+### 防呆规则（强制）
+- **严禁 root 拉代码**
+- **严禁 root 生成用于项目的 SSH 密钥**
+- 所有 Git/部署操作必须在 `admin` 用户下执行
+
+### 修复建议
+```bash
+sudo chown -R admin:admin /home/admin/program/MyWebsite
+su - admin
+ssh -T git@github.com
+```
 
 ---
 
-## 十、维护原则
+## 7.2 Gunicorn/FastAPI 启动坑
 
-1. 坚持 `code/database/logs/frontend-dist/uploads` 五目录物理隔离。
-2. Markdown 渲染逻辑统一在 `frontend/src/utils/markdown.js` 维护，禁止页面私有分叉实现。
-3. 禁止将 SQLite 放回源码目录。
-4. 生产变更后必须执行 `daemon-reload + restart + status + curl` 完整验收。
+### 症状
+- 服务“看似启动”但路由 404 或无响应
+- 用了 Flask 旧命令导致 ASGI 不兼容
+
+### 根因
+- 未使用 Uvicorn Worker 承载 FastAPI（ASGI）
+- `ExecStart` 指向错误环境或错误目录
+
+### 防呆规则
+- 启动命令固定为：  
+  `gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:5000`
+- 明确 `WorkingDirectory` 与虚拟环境路径
+- `systemctl daemon-reload` 后再 restart
+
+---
+
+## 7.3 SQLite 连接字符串坑（四斜杠绝杀）
+
+### 症状
+- 找不到数据库文件
+- 连接到了错误位置（相对路径导致）
+
+### 根因
+- SQLite 绝对路径写法错误
+
+### 防呆规则（必须）
+绝对路径必须是 **4 个斜杠**：
+
+```python
+sqlite:////home/admin/program/MyWebsite/database/my_website.db
+```
+
+不是 3 个，不是相对路径。
+
+---
+
+## 7.4 FastAPI Session 管理坑（防死锁/连接泄漏）
+
+### 症状
+- 并发下偶发数据库锁问题
+- 请求后连接未正确释放
+
+### 根因
+- 未使用依赖注入统一管理 Session 生命周期
+
+### 防呆规则（必须）
+在 FastAPI 中统一使用 `Depends(get_db)` 获取会话，确保每次请求结束后关闭 Session。
+
+---
+
+## 7.5 SQLite “attempt to write a readonly database” 坑
+
+### 症状
+- 写入时报错：`attempt to write a readonly database`
+
+### 常见根因
+1. 数据库文件属主错误（被 root 创建）
+2. `database/` 目录无写权限（SQLite 需要目录写权限）
+3. 数据库文件放在只读挂载或权限受限路径
+
+### 快速修复
+```bash
+sudo chown -R admin:admin /home/admin/program/MyWebsite/database
+chmod 755 /home/admin/program/MyWebsite/database
+chmod 664 /home/admin/program/MyWebsite/database/my_website.db
+```
+
+> 注意：目录权限与文件权限都要检查，SQLite 需要目录可写来创建锁/临时文件。
+
+---
+
+## 7.6 Nginx alias 路径坑（uploads 404）
+
+### 症状
+- `/uploads/...` 404 或路径错位
+
+### 根因
+- `location /uploads/` 与 `alias .../uploads/` 末尾斜杠不匹配
+
+### 防呆规则
+- `location /uploads/` + `alias /abs/path/uploads/;`（两者都保留末尾 `/`）
+
+---
+
+## 8. 维护建议（长期）
+
+- 任何改动先在 `code/` 验证，再发布到 `frontend-dist/`
+- 数据库每日定时备份（至少保留最近 7 天）
+- 变更 Nginx/systemd 后先 `nginx -t` 与 `systemctl status`
+- 生产问题先查：
+  1. `journalctl -u mywebsite -f`
+  2. Nginx error log
+  3. `logs/` 下应用日志
+
+---
+
+## 9. 一键核对清单（发布前）
+
+- [ ] 当前操作用户是 `admin`（非 root）
+- [ ] 目录结构为 5 大平级目录
+- [ ] SQLite URL 使用 `sqlite:////...` 绝对路径
+- [ ] FastAPI 路由使用 `Depends(get_db)` 管理 Session
+- [ ] systemd 启动命令为 Gunicorn + Uvicorn Worker 组合
+- [ ] Nginx 已直出 `frontend-dist/` 与 `uploads/`
+- [ ] `nginx -t`、`systemctl status`、接口健康检查全部通过
