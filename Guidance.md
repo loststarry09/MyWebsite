@@ -59,12 +59,12 @@
    - 便于 systemd / 运维排障
 
 4. `frontend-dist/`  
-   - 仅存放 `npm run build` 产物
-   - 由 Nginx 直接返回静态内容，避免 FastAPI 参与静态文件分发
+    - 仅存放 `npm run build` 产物
+    - 由 Nginx 通过 `root` 直接读取并返回静态内容，避免 FastAPI 参与静态文件分发
 
 5. `uploads/`  
-   - 本地图床持久化目录（V1.2 引入）
-   - 由 Nginx 直接读取，绕过 FastAPI，提高访问效率并降低后端负载
+    - 本地图床持久化目录（V1.2 引入）
+    - 由 Nginx 通过 `alias` 直接穿透读取，绕过 FastAPI，提高访问效率并降低后端负载
 
 ---
 
@@ -92,6 +92,7 @@
 - 所有路径与数据库连接串统一从 `backend/config.py` 读取
 - 禁止在业务路由或数据库初始化代码中再次硬编码绝对路径
 - 上传目录统一走配置项（如 `UPLOAD_DIR` / `IMAGE_UPLOAD_DIR` 兼容项）
+- 生产环境绝对路径变更时，只允许在 `config.py` 单点修改并回归验证
 
 ### 5.2 提示语与异常语义一致性
 
@@ -201,10 +202,14 @@ journalctl -u mywebsite -f
 
 ```bash
 cd /home/admin/program/MyWebsite/code/frontend
+# node_modules 不入库（.gitignore），每次拉取后都必须先安装依赖
 npm install
 npm run build
-cp -r dist/* /home/admin/program/MyWebsite/frontend-dist/
+cp -r dist/* ../frontend-dist/
 ```
+
+> 若当前目录不是 `code/frontend`，请改用绝对路径：  
+> `cp -r dist/* /home/admin/program/MyWebsite/frontend-dist/`
 
 发布后校验要点：
 
@@ -229,6 +234,7 @@ cp -r dist/* /home/admin/program/MyWebsite/frontend-dist/
 ### 防呆规则（强制）
 - **严禁 root 拉代码**
 - **严禁 root 生成用于项目的 SSH 密钥**
+- **严禁 root 修改 `code/` 下任何应用代码或配置文件**
 - 所有 Git/部署操作必须在 `admin` 用户下执行
 
 ### 修复建议
