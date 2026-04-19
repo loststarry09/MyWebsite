@@ -1,16 +1,16 @@
 # MyWebsite
 
-前后端分离个人网站项目（V1.4）：
+前后端分离个人网站项目（V1.4.1）：
 
 - 前端：Vue 3 + Vite + Tailwind CSS（`frontend/`）
-- 后端：FastAPI + Pydantic + SQLAlchemy + SQLite（`backend/`）
+- 后端：FastAPI + Pydantic + Uvicorn + SQLAlchemy + SQLite（`backend/`）
 - API 文档：`/docs`、`/redoc`
 
 ---
 
 ## 1. 项目定位
 
-MyWebsite 不再只是“轻量 Flask 博客”，而是一个可持续演进的现代全栈项目：
+MyWebsite 不再只是“轻量博客”，而是一个可持续演进的现代全栈项目：
 
 - 前端负责展示与交互
 - FastAPI 负责 API 与业务编排
@@ -21,7 +21,16 @@ MyWebsite 不再只是“轻量 Flask 博客”，而是一个可持续演进的
 
 ---
 
-## 2. 目录结构（开发仓库）
+## 2. 核心特性（V1.4.1）
+
+- FastAPI + Pydantic 提供类型安全的数据校验与更清晰的接口边界
+- 自带现代化 API 文档：`/docs` 与 `/redoc`
+- 基于用户家目录隔离的轻量级本地图床（`uploads/` 持久化 + Nginx 直出）
+- 全局配置中心（`backend/config.py`）统一管理数据库与上传路径
+
+---
+
+## 3. 目录结构（开发仓库）
 
 ```text
 /path/to/MyWebsite/
@@ -36,9 +45,9 @@ MyWebsite 不再只是“轻量 Flask 博客”，而是一个可持续演进的
 
 ---
 
-## 3. 本地开发快速开始
+## 4. 本地开发快速开始
 
-## 3.1 后端（FastAPI）
+## 4.1 后端（FastAPI）
 
 ```bash
 cd /path/to/MyWebsite/backend
@@ -54,7 +63,7 @@ uvicorn main:app --host 127.0.0.1 --port 5000 --reload
 - http://127.0.0.1:5000/docs
 - http://127.0.0.1:5000/redoc
 
-## 3.2 前端（Vue）
+## 4.2 前端（Vue）
 
 ```bash
 cd /path/to/MyWebsite/frontend
@@ -66,7 +75,18 @@ npm run dev
 
 ---
 
-## 4. 生产部署概要（Ubuntu 24.04）
+## 5. 前端部署流闭环（标准防呆）
+
+```bash
+cd /path/to/MyWebsite/frontend
+npm install
+npm run build
+cp -r dist/* /home/admin/program/MyWebsite/frontend-dist/
+```
+
+---
+
+## 6. 生产部署概要（Ubuntu 24.04）
 
 推荐采用“极简无痛流”部署模型：
 
@@ -88,7 +108,7 @@ gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:5000
 
 ---
 
-## 5. Nginx 关键原则
+## 7. Nginx 关键原则
 
 - `frontend-dist/` 由 Nginx 直接服务（SPA）
 - `uploads/` 由 Nginx 静态映射直出
@@ -98,7 +118,7 @@ gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:5000
 
 ---
 
-## 6. 常见问题速查
+## 8. 常见问题速查
 
 ### 6.1 SQLite 路径写法错误
 
@@ -123,7 +143,7 @@ FastAPI 生产环境请使用 Gunicorn + Uvicorn Worker，避免使用旧 Flask 
 
 ---
 
-## 7. 文档说明
+## 9. 文档说明
 
 - `README.md`：对外/开发者快速上手与架构概览
 - `Guidance.md`：内部部署手册与避坑宝典（推荐运维必读）

@@ -1,7 +1,7 @@
 # Guidance.md
 
-> MyWebsite 内部架构手册与避坑指南（V1.4）  
-> 后端已从 Flask 全量迁移到 FastAPI，并延续 V1.2 本地图床方案。
+> MyWebsite 内部架构手册与避坑指南（V1.4.1）  
+> 后端已从 Flask 全量迁移到 FastAPI，并在 V1.4.1 完成配置中心与提示语一致性治理。
 
 ---
 
@@ -11,6 +11,7 @@
 
 - 统一 MyWebsite 的部署理念与目录规范
 - 固化 FastAPI 时代的运行方式（Gunicorn + Uvicorn Worker）
+- 固化 V1.4.1 配置中心（`config.py`）与路径去硬编码规范
 - 记录历史踩坑与防呆机制，降低维护风险
 - 保证“极简无痛流”可复制、可扩展、可长期演进
 
@@ -67,10 +68,10 @@
 
 ---
 
-## 4. 运行架构（V1.4）
+## 4. 运行架构（V1.4.1）
 
 - 前端：Vue 3 + Vite + Tailwind CSS
-- 后端：FastAPI + Pydantic + SQLAlchemy + SQLite
+- 后端：FastAPI + Pydantic + Uvicorn + SQLAlchemy + SQLite
 - 进程：Gunicorn + Uvicorn Worker
 - 守护：systemd
 - 网关：Nginx
@@ -84,18 +85,34 @@
 
 ---
 
-## 5. Nginx 穿透配置逻辑（重点）
+## 5. V1.4.1 治理增量（必须遵守）
+
+### 5.1 全局配置中心（`config.py`）
+
+- 所有路径与数据库连接串统一从 `backend/config.py` 读取
+- 禁止在业务路由或数据库初始化代码中再次硬编码绝对路径
+- 上传目录统一走配置项（如 `UPLOAD_DIR` / `IMAGE_UPLOAD_DIR` 兼容项）
+
+### 5.2 提示语与异常语义一致性
+
+- CRUD 与上传等业务错误统一使用结构化异常 detail
+- 中英文提示语保持同一语义，不出现同场景文案冲突
+- 接口错误码（code）与 message 必须一一对应
+
+---
+
+## 6. Nginx 穿透配置逻辑（重点）
 
 目标：让静态资源与上传资源直接由 Nginx 返回，绕过 FastAPI。
 
-## 5.1 关键原则
+## 6.1 关键原则
 
 - `frontend-dist/`：前端静态站点根目录
 - `/uploads/`：映射到持久化上传目录
 - `/api/`（或约定 API 前缀）：代理到 FastAPI
 - 所有静态访问不经过 Python 进程，提升吞吐与稳定性
 
-## 5.2 参考配置（按实际域名修改）
+## 6.2 参考配置（按实际域名修改）
 
 ```nginx
 server {
@@ -136,7 +153,7 @@ server {
 
 ---
 
-## 6. systemd + Gunicorn + Uvicorn Worker（重点）
+## 7. systemd + Gunicorn + Uvicorn Worker（重点）
 
 FastAPI 生产启动命令必须使用：
 
@@ -144,7 +161,7 @@ FastAPI 生产启动命令必须使用：
 gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:5000
 ```
 
-## 6.1 参考 systemd 服务文件
+## 7.1 参考 systemd 服务文件
 
 路径：`/etc/systemd/system/mywebsite.service`
 
@@ -166,7 +183,7 @@ RestartSec=3
 WantedBy=multi-user.target
 ```
 
-## 6.2 常用管理命令
+## 7.2 常用管理命令
 
 ```bash
 sudo systemctl daemon-reload
@@ -178,9 +195,28 @@ journalctl -u mywebsite -f
 
 ---
 
-## 7. 历史踩坑与防呆机制（避坑宝典）
+## 8. 前端部署流闭环（标准）
 
-## 7.1 SSH / Git 权限坑
+严格采用以下流水线，禁止跳步：
+
+```bash
+cd /home/admin/program/MyWebsite/code/frontend
+npm install
+npm run build
+cp -r dist/* /home/admin/program/MyWebsite/frontend-dist/
+```
+
+发布后校验要点：
+
+- `frontend-dist/` 时间戳与产物内容已更新
+- Nginx `root` 指向 `frontend-dist/`
+- 页面资源 200 且缓存策略符合预期
+
+---
+
+## 9. 历史踩坑与防呆机制（避坑宝典）
+
+## 9.1 SSH / Git 权限坑
 
 ### 症状
 - `Permission denied (publickey)`
@@ -204,7 +240,7 @@ ssh -T git@github.com
 
 ---
 
-## 7.2 Gunicorn/FastAPI 启动坑
+## 9.2 Gunicorn/FastAPI 启动坑
 
 ### 症状
 - 服务“看似启动”但路由 404 或无响应
@@ -222,7 +258,7 @@ ssh -T git@github.com
 
 ---
 
-## 7.3 SQLite 连接字符串坑（四斜杠绝杀）
+## 9.3 SQLite 连接字符串坑（四斜杠绝杀）
 
 ### 症状
 - 找不到数据库文件
@@ -242,7 +278,7 @@ sqlite:////home/admin/program/MyWebsite/database/blog.db
 
 ---
 
-## 7.4 FastAPI Session 管理坑（防死锁/连接泄漏）
+## 9.4 FastAPI Session 管理坑（防死锁/连接泄漏）
 
 ### 症状
 - 并发下偶发数据库锁问题
@@ -256,7 +292,7 @@ sqlite:////home/admin/program/MyWebsite/database/blog.db
 
 ---
 
-## 7.5 SQLite “attempt to write a readonly database” 坑
+## 9.5 SQLite “attempt to write a readonly database” 坑
 
 ### 症状
 - 写入时报错：`attempt to write a readonly database`
@@ -277,7 +313,7 @@ chmod 664 /home/admin/program/MyWebsite/database/blog.db
 
 ---
 
-## 7.6 Nginx alias 路径坑（uploads 404）
+## 9.6 Nginx alias 路径坑（uploads 404）
 
 ### 症状
 - `/uploads/...` 404 或路径错位
@@ -290,7 +326,7 @@ chmod 664 /home/admin/program/MyWebsite/database/blog.db
 
 ---
 
-## 8. 维护建议（长期）
+## 10. 维护建议（长期）
 
 - 任何改动先在 `code/` 验证，再发布到 `frontend-dist/`
 - 数据库每日定时备份（至少保留最近 7 天）
@@ -302,12 +338,14 @@ chmod 664 /home/admin/program/MyWebsite/database/blog.db
 
 ---
 
-## 9. 一键核对清单（发布前）
+## 11. 一键核对清单（发布前）
 
 - [ ] 当前操作用户是 `admin`（非 root）
 - [ ] 目录结构为 5 大平级目录
 - [ ] SQLite URL 使用 `sqlite:////...` 绝对路径
+- [ ] 业务代码未出现数据库/上传目录硬编码，统一读取 `config.py`
 - [ ] FastAPI 路由使用 `Depends(get_db)` 管理 Session
 - [ ] systemd 启动命令为 Gunicorn + Uvicorn Worker 组合
 - [ ] Nginx 已直出 `frontend-dist/` 与 `uploads/`
+- [ ] 前端发布严格执行 `npm install -> npm run build -> 同步 dist 到 frontend-dist/`
 - [ ] `nginx -t`、`systemctl status`、接口健康检查全部通过
