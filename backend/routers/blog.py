@@ -1,6 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Any
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import JSONResponse
@@ -32,7 +33,7 @@ def _raise_http_error(error: str, message: str, status: int, code: str | None = 
     raise HTTPException(status_code=status, detail=detail)
 
 
-def _success_response(data, message: str = "", status: int = 200) -> JSONResponse:
+def _success_response(data: Any, message: str = "", status: int = 200) -> JSONResponse:
     return JSONResponse(content={"success": True, "data": data, "message": message}, status_code=status)
 
 
@@ -65,7 +66,7 @@ def _parse_blog_id(blog_id: str) -> int | None:
         return None
 
 
-def _normalize_tags(tags) -> list[str]:
+def _normalize_tags(tags: list[str] | str | None) -> list[str]:
     if isinstance(tags, list):
         return [str(tag).strip() for tag in tags if str(tag).strip()]
     if isinstance(tags, str):
@@ -73,7 +74,7 @@ def _normalize_tags(tags) -> list[str]:
     return []
 
 
-def _resolve_tags(db_session: Session, tags) -> list[Tag]:
+def _resolve_tags(db_session: Session, tags: list[str] | str | None) -> list[Tag]:
     names = list(dict.fromkeys(_normalize_tags(tags)))
     if not names:
         return []
@@ -274,11 +275,10 @@ async def upload_image(file: UploadFile = File(...)):
 
     size = 0
     try:
-        generated_name = ""
         save_path: Path | None = None
-        for _ in range(3):
-            generated_name = f"{uuid.uuid4().hex}{extension}"
-            candidate_path = (upload_root / generated_name).resolve()
+        for attempt in range(3):
+            candidate_name = f"{uuid.uuid4().hex}{extension}"
+            candidate_path = (upload_root / candidate_name).resolve()
             if not candidate_path.is_relative_to(upload_root):
                 _raise_http_error("invalid_file", "非法文件路径", 400, code="INVALID_FILE")
             try:
@@ -301,11 +301,13 @@ async def upload_image(file: UploadFile = File(...)):
                 save_path = candidate_path
                 break
             except FileExistsError:
+                if attempt == 2:
+                    _raise_http_error("upload_failed", "图片保存失败，请稍后重试", 500, code="UPLOAD_FAILED")
                 continue
         if save_path is None:
             _raise_http_error("upload_failed", "图片保存失败，请稍后重试", 500, code="UPLOAD_FAILED")
     finally:
         await file.close()
 
-    image_url = f"/uploads/{generated_name}"
+    image_url = f"/uploads/{save_path.name}"
     return _success_response({"url": image_url}, status=201)
