@@ -96,14 +96,14 @@ async function deleteBlog() {
 
 <template>
   <section
-    class="rounded-lg border border-stone-200 bg-white p-6 shadow-sm dark:border-stone-700 dark:bg-stone-800"
+    class="rounded-lg border border-stone-200 bg-white p-4 shadow-sm dark:border-stone-700 dark:bg-stone-800 md:p-6"
   >
     <p v-if="loading" class="text-sm text-stone-500 transition-colors duration-300 dark:text-stone-400">加载中...</p>
     <p v-else-if="loadError" class="text-sm text-rose-600">{{ loadError }}</p>
 
     <template v-else-if="blog">
-      <div class="flex items-center justify-between gap-3">
-        <h1 class="text-2xl font-semibold text-stone-800 transition-colors duration-300 dark:text-stone-100">{{ blog.title }}</h1>
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h1 class="text-xl font-semibold text-stone-800 transition-colors duration-300 dark:text-stone-100 md:text-2xl">{{ blog.title }}</h1>
         <span
           v-if="blog.isFavorite"
           class="rounded border border-amber-200 bg-amber-50 px-2 py-1 text-xs text-amber-700 transition-colors duration-300 dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-300"
@@ -123,7 +123,7 @@ async function deleteBlog() {
       </ul>
 
       <article
-        class="prose prose-stone prose-headings:font-semibold prose-li:my-1 prose-code:bg-gray-100 prose-code:text-red-500 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none mt-4 max-w-none transition-colors duration-300 dark:prose-invert dark:prose-code:bg-gray-800 dark:prose-code:text-pink-400"
+        class="prose prose-sm prose-stone prose-headings:font-semibold prose-li:my-1 prose-code:bg-gray-100 prose-code:text-red-500 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:before:content-none prose-code:after:content-none mt-4 max-w-none transition-colors duration-300 md:prose-base dark:prose-invert dark:prose-code:bg-gray-800 dark:prose-code:text-pink-400"
         aria-label="Blog post content"
         v-html="renderedContent"
       />
@@ -165,6 +165,9 @@ async function deleteBlog() {
   background-color: #1f2937 !important;
   color: #f3f4f6 !important;
   border-radius: 0.5rem;
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
 }
 
 :deep(.dark .prose pre) {
