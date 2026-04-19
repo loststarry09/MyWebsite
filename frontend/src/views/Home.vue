@@ -3,7 +3,7 @@ import NavCard from '../components/NavCard.vue'
 </script>
 
 <template>
-  <section class="flex min-h-[70vh] items-center justify-center px-1 transition-colors duration-300">
+  <section class="flex min-h-[70vh] items-center justify-center transition-colors duration-300">
     <div class="w-full max-w-4xl">
       <h1 class="mb-6 text-center text-2xl font-semibold text-stone-800 transition-colors duration-300 dark:text-stone-100 md:mb-8 md:text-3xl">个人导航</h1>
       <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
