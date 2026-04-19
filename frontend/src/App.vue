@@ -1,6 +1,6 @@
 <template>
   <div class="min-h-screen bg-[#F7F5F2] text-gray-800 transition-colors duration-300 dark:bg-gray-900 dark:text-gray-100">
-    <header class="mx-auto max-w-4xl px-4 py-4 md:px-6 md:py-6">
+    <header class="mx-auto max-w-5xl px-4 py-4 md:px-8 md:py-6 lg:px-16">
       <div class="flex items-center justify-between md:justify-start md:gap-4">
         <nav class="hidden md:flex md:items-center md:gap-4 md:text-base">
           <RouterLink to="/" class="transition-colors duration-200 hover:text-stone-600 hover:underline dark:hover:text-stone-300">首页</RouterLink>
@@ -35,7 +35,7 @@
         <RouterLink to="/fun" class="block rounded px-2 py-2 transition-colors duration-200 hover:bg-stone-100 dark:hover:bg-gray-700" @click="isMenuOpen = false">娱乐</RouterLink>
       </nav>
     </header>
-    <main class="mx-auto max-w-4xl px-4 pb-8 md:px-6 md:pb-10">
+    <main class="mx-auto max-w-5xl px-4 pb-8 md:px-8 md:pb-10 lg:px-16">
       <RouterView v-slot="{ Component }">
         <Transition name="page-fade" mode="out-in">
           <component :is="Component" />
