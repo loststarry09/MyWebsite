@@ -1,3 +1,4 @@
+import os
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -18,7 +19,8 @@ DEFAULT_PAGE = 1
 DEFAULT_PAGE_SIZE = 10
 MAX_PAGE = 10000
 MAX_PAGE_SIZE = 100
-IMAGE_UPLOAD_DIR = Path("/home/admin/program/MyWebsite/uploads/")
+DEFAULT_IMAGE_UPLOAD_DIR = "/home/admin/program/MyWebsite/uploads/"
+IMAGE_UPLOAD_DIR = Path(os.getenv("IMAGE_UPLOAD_DIR", DEFAULT_IMAGE_UPLOAD_DIR))
 IMAGE_MAX_SIZE_BYTES = 5 * 1024 * 1024
 ALLOWED_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
 ALLOWED_IMAGE_CONTENT_TYPES = {"image/jpeg", "image/png", "image/gif", "image/webp"}
@@ -272,30 +274,43 @@ async def upload_image(file: UploadFile = File(...)):
             code="INVALID_FILE_TYPE",
         )
 
-    upload_root = IMAGE_UPLOAD_DIR.resolve()
+    upload_root = IMAGE_UPLOAD_DIR.expanduser().resolve()
     upload_root.mkdir(parents=True, exist_ok=True)
-
-    generated_name = f"{uuid.uuid4().hex}{extension}"
-    save_path = (upload_root / generated_name).resolve()
-    if not str(save_path).startswith(f"{upload_root}/"):
-        return _error_response("invalid_file", "非法文件路径", 400, code="INVALID_FILE")
 
     size = 0
     try:
-        with open(save_path, "xb") as target:
-            while True:
-                chunk = await file.read(1024 * 1024)
-                if not chunk:
-                    break
-                size += len(chunk)
-                if size > IMAGE_MAX_SIZE_BYTES:
-                    target.close()
-                    save_path.unlink(missing_ok=True)
-                    return _error_response("file_too_large", "单张图片大小不能超过 5MB", 400, code="FILE_TOO_LARGE")
-                target.write(chunk)
+        generated_name = ""
+        save_path: Path | None = None
+        for _ in range(3):
+            generated_name = f"{uuid.uuid4().hex}{extension}"
+            candidate_path = (upload_root / generated_name).resolve()
+            if not candidate_path.is_relative_to(upload_root):
+                return _error_response("invalid_file", "非法文件路径", 400, code="INVALID_FILE")
+            try:
+                with open(candidate_path, "xb") as target:
+                    while True:
+                        chunk = await file.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        size += len(chunk)
+                        if size > IMAGE_MAX_SIZE_BYTES:
+                            target.close()
+                            candidate_path.unlink(missing_ok=True)
+                            return _error_response(
+                                "file_too_large",
+                                "单张图片大小不能超过 5MB",
+                                400,
+                                code="FILE_TOO_LARGE",
+                            )
+                        target.write(chunk)
+                save_path = candidate_path
+                break
+            except FileExistsError:
+                continue
+        if save_path is None:
+            return _error_response("upload_failed", "图片保存失败，请稍后重试", 500, code="UPLOAD_FAILED")
     finally:
         await file.close()
 
     image_url = f"/uploads/{generated_name}"
     return _success_response({"url": image_url}, status=201)
-

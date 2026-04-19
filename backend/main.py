@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
@@ -14,9 +16,13 @@ class PingResponse(BaseModel):
 app = FastAPI(title="MyWebsite Backend API")
 
 # 开发阶段先放开跨域，后续可按域名白名单收敛。
+allow_origins = ["*"] if os.getenv("APP_ENV", "development").lower() == "development" else [
+    origin.strip() for origin in os.getenv("CORS_ALLOW_ORIGINS", "").split(",") if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allow_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
