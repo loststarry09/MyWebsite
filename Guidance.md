@@ -355,3 +355,245 @@ chmod 664 /home/admin/program/MyWebsite/database/blog.db
 - [ ] Nginx 已直出 `frontend-dist/` 与 `uploads/`
 - [ ] 前端发布严格执行 `npm install -> npm run build -> 同步 dist 到 frontend-dist/`
 - [ ] `nginx -t`、`systemctl status`、接口健康检查全部通过
+
+---
+
+## 12. 保姆级生产环境部署教程（Ubuntu 24.04，从零可复制）
+
+> 目标：让完全不熟悉 Linux 的同学，按命令复制粘贴即可完成部署。  
+> 约定：域名示例 `your-domain.com`，服务器用户 `admin`，工作区固定 `/home/admin/program/MyWebsite/`。  
+> 红线：**所有代码操作必须使用 `admin`，禁止 root 修改代码。**
+
+## 12.1 第 0 步：登录后先确认你不是 root
+
+```bash
+whoami
+```
+
+- 输出应为 `admin`
+- 若输出为 `root`，立即切换：
+
+```bash
+su - admin
+```
+
+## 12.2 第 1 步：安装系统依赖（一次性）
+
+```bash
+sudo apt update
+sudo apt install -y git nginx python3 python3-venv python3-pip sqlite3 curl nodejs npm
+```
+
+安装完成后确认版本：
+
+```bash
+python3 --version
+node -v
+npm -v
+nginx -v
+```
+
+## 12.3 第 2 步：创建 5 大平级目录并授权
+
+```bash
+mkdir -p /home/admin/program/MyWebsite/{code,database,logs,frontend-dist,uploads}
+sudo chown -R admin:admin /home/admin/program/MyWebsite
+chmod 755 /home/admin/program/MyWebsite
+chmod 755 /home/admin/program/MyWebsite/{code,database,logs,frontend-dist,uploads}
+```
+
+检查目录是否正确：
+
+```bash
+ls -al /home/admin/program/MyWebsite
+```
+
+必须看到：`code/`、`database/`、`logs/`、`frontend-dist/`、`uploads/`。
+
+## 12.4 第 3 步：拉取代码到 `code/`
+
+首次部署（目录为空）：
+
+```bash
+cd /home/admin/program/MyWebsite/code
+git clone <你的仓库地址> .
+```
+
+后续更新（目录已有仓库）：
+
+```bash
+cd /home/admin/program/MyWebsite/code
+git pull
+```
+
+## 12.5 第 4 步：部署后端（FastAPI）
+
+```bash
+cd /home/admin/program/MyWebsite/code/backend
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+```
+
+核对关键配置（必须使用绝对路径，统一由 `config.py` 管理）：
+
+```bash
+grep -n "sqlite:////" /home/admin/program/MyWebsite/code/backend/config.py
+grep -n "UPLOAD" /home/admin/program/MyWebsite/code/backend/config.py
+```
+
+本机试跑（看到启动日志即可 `Ctrl+C` 退出）：
+
+```bash
+cd /home/admin/program/MyWebsite/code/backend
+source .venv/bin/activate
+uvicorn main:app --host 127.0.0.1 --port 5000
+```
+
+## 12.6 第 5 步：构建前端并同步到 `frontend-dist/`
+
+> 防呆重点：`node_modules` 被 `.gitignore` 忽略，**每次拉取代码后都先执行 `npm install`**。
+
+```bash
+cd /home/admin/program/MyWebsite/code/frontend
+npm install
+npm run build
+cp -r dist/* ../frontend-dist/
+```
+
+检查产物是否已同步：
+
+```bash
+ls -al /home/admin/program/MyWebsite/frontend-dist
+```
+
+## 12.7 第 6 步：配置 systemd 启动 FastAPI（Gunicorn + Uvicorn Worker）
+
+创建服务文件：
+
+```bash
+sudo tee /etc/systemd/system/mywebsite.service >/dev/null <<'EOF'
+[Unit]
+Description=MyWebsite FastAPI Service
+After=network.target
+
+[Service]
+User=admin
+Group=admin
+WorkingDirectory=/home/admin/program/MyWebsite/code/backend
+Environment="PATH=/home/admin/program/MyWebsite/code/backend/.venv/bin"
+ExecStart=/home/admin/program/MyWebsite/code/backend/.venv/bin/gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:5000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
+EOF
+```
+
+加载并启动：
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl enable mywebsite
+sudo systemctl restart mywebsite
+sudo systemctl status mywebsite --no-pager
+```
+
+若未启动成功，立刻查看日志：
+
+```bash
+journalctl -u mywebsite -n 100 --no-pager
+```
+
+## 12.8 第 7 步：配置 Nginx（静态与 uploads 穿透）
+
+创建站点配置：
+
+```bash
+sudo tee /etc/nginx/sites-available/mywebsite >/dev/null <<'EOF'
+server {
+    listen 80;
+    server_name your-domain.com;
+
+    root /home/admin/program/MyWebsite/frontend-dist;
+    index index.html;
+
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    location /uploads/ {
+        alias /home/admin/program/MyWebsite/uploads/;
+        access_log off;
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
+    }
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:5000/;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+EOF
+```
+
+启用站点并重载 Nginx：
+
+```bash
+sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo nginx -t
+sudo systemctl restart nginx
+sudo systemctl status nginx --no-pager
+```
+
+## 12.9 第 8 步：上线验收（必须全部通过）
+
+```bash
+curl -I http://127.0.0.1
+curl -I http://127.0.0.1/uploads/
+curl -I http://127.0.0.1/api/
+```
+
+再用浏览器访问：
+
+1. `http://your-domain.com`（前端首页）
+2. `http://your-domain.com/docs` 或 `http://your-domain.com/api/docs`（按你的反代路径）
+3. 上传图片后，确认图片 URL 可直接访问（走 `/uploads/...`）
+
+## 12.10 第 9 步：后续发布标准流程（每次发布都照做）
+
+```bash
+cd /home/admin/program/MyWebsite/code
+git pull
+
+cd /home/admin/program/MyWebsite/code/backend
+source .venv/bin/activate
+pip install -r requirements.txt
+sudo systemctl restart mywebsite
+
+cd /home/admin/program/MyWebsite/code/frontend
+npm install
+npm run build
+cp -r dist/* ../frontend-dist/
+
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+发布后复核：
+
+```bash
+sudo systemctl status mywebsite --no-pager
+sudo systemctl status nginx --no-pager
+journalctl -u mywebsite -n 50 --no-pager
+```
+
+> 到此，生产部署闭环完成。  
+> 若任一步失败，不要跳步，回到对应步骤按日志修复后再继续。
