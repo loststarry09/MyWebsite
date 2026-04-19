@@ -50,7 +50,7 @@
    - 允许随时 `git pull`、回滚、替换
 
 2. `database/`  
-   - 仅存放 SQLite 文件，如 `my_website.db`
+   - 仅存放 SQLite 文件，如 `blog.db`
    - 与代码物理隔离，避免覆盖风险
 
 3. `logs/`  
@@ -235,7 +235,7 @@ ssh -T git@github.com
 绝对路径必须是 **4 个斜杠**：
 
 ```python
-sqlite:////home/admin/program/MyWebsite/database/my_website.db
+sqlite:////home/admin/program/MyWebsite/database/blog.db
 ```
 
 不是 3 个，不是相对路径。
@@ -270,7 +270,7 @@ sqlite:////home/admin/program/MyWebsite/database/my_website.db
 ```bash
 sudo chown -R admin:admin /home/admin/program/MyWebsite/database
 chmod 755 /home/admin/program/MyWebsite/database
-chmod 664 /home/admin/program/MyWebsite/database/my_website.db
+chmod 664 /home/admin/program/MyWebsite/database/blog.db
 ```
 
 > 注意：目录权限与文件权限都要检查，SQLite 需要目录可写来创建锁/临时文件。

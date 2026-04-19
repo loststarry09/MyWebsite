@@ -2,8 +2,8 @@
 
 前后端分离个人网站项目（V1.4）：
 
-- 前端：Vue 3 + Vite + Tailwind CSS（`/home/runner/work/MyWebsite/MyWebsite/frontend`）
-- 后端：FastAPI + Pydantic + SQLAlchemy + SQLite（`/home/runner/work/MyWebsite/MyWebsite/backend`）
+- 前端：Vue 3 + Vite + Tailwind CSS（`frontend/`）
+- 后端：FastAPI + Pydantic + SQLAlchemy + SQLite（`backend/`）
 - API 文档：`/docs`、`/redoc`
 
 ---
@@ -24,7 +24,7 @@ MyWebsite 不再只是“轻量 Flask 博客”，而是一个可持续演进的
 ## 2. 目录结构（开发仓库）
 
 ```text
-/home/runner/work/MyWebsite/MyWebsite/
+/path/to/MyWebsite/
 ├── backend/
 ├── deploy/
 ├── frontend/
@@ -41,7 +41,7 @@ MyWebsite 不再只是“轻量 Flask 博客”，而是一个可持续演进的
 ## 3.1 后端（FastAPI）
 
 ```bash
-cd /home/runner/work/MyWebsite/MyWebsite/backend
+cd /path/to/MyWebsite/backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip
@@ -57,7 +57,7 @@ uvicorn main:app --host 127.0.0.1 --port 5000 --reload
 ## 3.2 前端（Vue）
 
 ```bash
-cd /home/runner/work/MyWebsite/MyWebsite/frontend
+cd /path/to/MyWebsite/frontend
 npm ci
 npm run dev
 ```
@@ -105,7 +105,7 @@ gunicorn main:app -w 4 -k uvicorn.workers.UvicornWorker -b 127.0.0.1:5000
 生产绝对路径必须为 4 斜杠：
 
 ```text
-sqlite:////home/admin/program/MyWebsite/database/my_website.db
+sqlite:////home/admin/program/MyWebsite/database/blog.db
 ```
 
 ### 6.2 数据库只读报错
