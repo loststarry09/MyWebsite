@@ -2,6 +2,8 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from routers import blog_router
+
 
 class PingResponse(BaseModel):
     """统一定义 /api/ping 的响应结构，便于后续接口文档与类型约束。"""
@@ -26,3 +28,6 @@ def ping() -> PingResponse:
     """健康检查接口，用于验证 FastAPI 服务已正常启动。"""
 
     return PingResponse(message="pong")
+
+
+app.include_router(blog_router)
