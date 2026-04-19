@@ -358,75 +358,101 @@ chmod 664 /home/admin/program/MyWebsite/database/blog.db
 
 ---
 
-## 12. 保姆级生产环境部署教程（Ubuntu 24.04，从零可复制）
+## 12. 【从零开始的生产环境部署指南（防呆版）】
 
-> 目标：让完全不熟悉 Linux 的同学，按命令复制粘贴即可完成部署。  
-> 约定：域名示例 `your-domain.com`，服务器用户 `admin`，工作区固定 `/home/admin/program/MyWebsite/`。  
-> 红线：**所有代码操作必须使用 `admin`，禁止 root 修改代码。**
+> 目标：完全不懂 Linux 的同学，也能按命令复制粘贴部署成功。  
+> 固定工作区：`/home/admin/program/MyWebsite/`
 
-## 12.1 第 0 步：登录后先确认你不是 root
+### 第 1 步：服务器初始化与用户创建（绝对防呆）
+
+**绝对不要用 root 部署！** root 只用于一次性系统初始化。
+
+先用 root 执行：
 
 ```bash
-whoami
+adduser admin
+usermod -aG sudo admin
+id admin
 ```
 
-- 输出应为 `admin`
-- 若输出为 `root`，立即切换：
+切换到 `admin` 后，后续部署都在 `admin` 身份执行：
 
 ```bash
 su - admin
+whoami
 ```
 
-## 12.2 第 1 步：安装系统依赖（一次性）
+应输出 `admin`。
+
+### 第 2 步：基础环境安装（Ubuntu 24.04）
 
 ```bash
 sudo apt update
-sudo apt install -y git nginx python3 python3-venv python3-pip sqlite3 curl nodejs npm
+sudo apt install -y python3 python3-venv python3-pip nodejs npm nginx git sqlite3 curl
 ```
 
-安装完成后确认版本：
+可选校验：
 
 ```bash
 python3 --version
 node -v
 npm -v
 nginx -v
+git --version
 ```
 
-## 12.3 第 2 步：创建 5 大平级目录并授权
+### 第 3 步：构建 5 大平级目录架构
 
 ```bash
 mkdir -p /home/admin/program/MyWebsite/{code,database,logs,frontend-dist,uploads}
 sudo chown -R admin:admin /home/admin/program/MyWebsite
-chmod 755 /home/admin/program/MyWebsite
 chmod 755 /home/admin/program/MyWebsite/{code,database,logs,frontend-dist,uploads}
 ```
 
-检查目录是否正确：
+5 个目录职责（必须遵守）：
+
+- `code/`：只放源码，允许随时拉取/回滚
+- `database/`：只放 SQLite 数据文件（如 `blog.db`）
+- `logs/`：只放运行日志
+- `frontend-dist/`：只放前端构建产物，由 Nginx 直接读取
+- `uploads/`：只放用户上传图片，由 Nginx 直接读取
+
+### 第 4 步：配置 SSH 与拉取代码（必须 admin 身份）
+
+生成 Ed25519 SSH 密钥：
 
 ```bash
-ls -al /home/admin/program/MyWebsite
+ssh-keygen -t ed25519 -C "admin@mywebsite-server"
+cat ~/.ssh/id_ed25519.pub
 ```
 
-必须看到：`code/`、`database/`、`logs/`、`frontend-dist/`、`uploads/`。
+把公钥添加到 GitHub 后测试：
 
-## 12.4 第 3 步：拉取代码到 `code/`
+```bash
+ssh -T git@github.com
+```
 
-首次部署（目录为空）：
+拉取代码到 `code/`：
 
 ```bash
 cd /home/admin/program/MyWebsite/code
-git clone <你的仓库地址> .
+git clone <你的仓库SSH地址> .
 ```
 
-后续更新（目录已有仓库）：
+### 第 5 步：前端依赖安装与构建
 
 ```bash
-cd /home/admin/program/MyWebsite/code
-git pull
+cd /home/admin/program/MyWebsite/code/frontend
+npm install
+npm run build
+cp -r dist/* /home/admin/program/MyWebsite/frontend-dist/
 ```
 
-## 12.5 第 4 步：部署后端（FastAPI）
+关键防呆说明：`dist/` 必须移出代码区放到 `frontend-dist/`，这样代码更新不会覆盖线上静态文件，Nginx 也能直接高性能直出。
+
+### 第 6 步：后端环境与服务守护（systemd）
+
+创建后端虚拟环境并安装依赖：
 
 ```bash
 cd /home/admin/program/MyWebsite/code/backend
@@ -436,41 +462,7 @@ pip install --upgrade pip
 pip install -r requirements.txt
 ```
 
-核对关键配置（必须使用绝对路径，统一由 `config.py` 管理）：
-
-```bash
-grep -n "sqlite:////" /home/admin/program/MyWebsite/code/backend/config.py
-grep -n "UPLOAD" /home/admin/program/MyWebsite/code/backend/config.py
-```
-
-本机试跑（看到启动日志即可 `Ctrl+C` 退出）：
-
-```bash
-cd /home/admin/program/MyWebsite/code/backend
-source .venv/bin/activate
-uvicorn main:app --host 127.0.0.1 --port 5000
-```
-
-## 12.6 第 5 步：构建前端并同步到 `frontend-dist/`
-
-> 防呆重点：`node_modules` 被 `.gitignore` 忽略，**每次拉取代码后都先执行 `npm install`**。
-
-```bash
-cd /home/admin/program/MyWebsite/code/frontend
-npm install
-npm run build
-cp -r dist/* ../frontend-dist/
-```
-
-检查产物是否已同步：
-
-```bash
-ls -al /home/admin/program/MyWebsite/frontend-dist
-```
-
-## 12.7 第 6 步：配置 systemd 启动 FastAPI（Gunicorn + Uvicorn Worker）
-
-创建服务文件：
+创建 systemd 服务文件 `/etc/systemd/system/mywebsite.service`：
 
 ```bash
 sudo tee /etc/systemd/system/mywebsite.service >/dev/null <<'EOF'
@@ -492,7 +484,7 @@ WantedBy=multi-user.target
 EOF
 ```
 
-加载并启动：
+启动并设置开机自启：
 
 ```bash
 sudo systemctl daemon-reload
@@ -501,15 +493,28 @@ sudo systemctl restart mywebsite
 sudo systemctl status mywebsite --no-pager
 ```
 
-若未启动成功，立刻查看日志：
+SQLite 防呆坑（必须执行）：
 
 ```bash
-journalctl -u mywebsite -n 100 --no-pager
+sudo chown -R admin:admin /home/admin/program/MyWebsite/database
+ls -ld /home/admin/program/MyWebsite/database
+grep -n "sqlite:////" /home/admin/program/MyWebsite/code/backend/config.py
 ```
 
-## 12.8 第 7 步：配置 Nginx（静态与 uploads 穿透）
+- `database/` 所有权必须是 `admin:admin`，否则会出现 `attempt to write a readonly database`
+- SQLite 连接字符串必须是 4 个斜杠的绝对路径：`sqlite:////home/admin/program/MyWebsite/database/blog.db`
 
-创建站点配置：
+### 第 7 步：Nginx 穿透配置
+
+关键防呆操作（目录穿透权限）：
+
+```bash
+chmod +x /home/admin /home/admin/program /home/admin/program/MyWebsite
+```
+
+说明：这是为了让 Nginx 运行用户 `www-data` 可以“穿透访问”到 `frontend-dist/` 与 `uploads/`。
+
+创建 Nginx 站点配置：
 
 ```bash
 sudo tee /etc/nginx/sites-available/mywebsite >/dev/null <<'EOF'
@@ -524,13 +529,6 @@ server {
         try_files $uri $uri/ /index.html;
     }
 
-    location /uploads/ {
-        alias /home/admin/program/MyWebsite/uploads/;
-        access_log off;
-        expires 30d;
-        add_header Cache-Control "public, max-age=2592000";
-    }
-
     location /api/ {
         proxy_pass http://127.0.0.1:5000/;
         proxy_http_version 1.1;
@@ -539,11 +537,18 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+    location /uploads/ {
+        alias /home/admin/program/MyWebsite/uploads/;
+        access_log off;
+        expires 30d;
+        add_header Cache-Control "public, max-age=2592000";
+    }
 }
 EOF
 ```
 
-启用站点并重载 Nginx：
+启用并生效：
 
 ```bash
 sudo ln -sf /etc/nginx/sites-available/mywebsite /etc/nginx/sites-enabled/mywebsite
@@ -552,48 +557,3 @@ sudo nginx -t
 sudo systemctl restart nginx
 sudo systemctl status nginx --no-pager
 ```
-
-## 12.9 第 8 步：上线验收（必须全部通过）
-
-```bash
-curl -I http://127.0.0.1
-curl -I http://127.0.0.1/uploads/
-curl -I http://127.0.0.1/api/
-```
-
-再用浏览器访问：
-
-1. `http://your-domain.com`（前端首页）
-2. `http://your-domain.com/docs` 或 `http://your-domain.com/api/docs`（按你的反代路径）
-3. 上传图片后，确认图片 URL 可直接访问（走 `/uploads/...`）
-
-## 12.10 第 9 步：后续发布标准流程（每次发布都照做）
-
-```bash
-cd /home/admin/program/MyWebsite/code
-git pull
-
-cd /home/admin/program/MyWebsite/code/backend
-source .venv/bin/activate
-pip install -r requirements.txt
-sudo systemctl restart mywebsite
-
-cd /home/admin/program/MyWebsite/code/frontend
-npm install
-npm run build
-cp -r dist/* ../frontend-dist/
-
-sudo nginx -t
-sudo systemctl restart nginx
-```
-
-发布后复核：
-
-```bash
-sudo systemctl status mywebsite --no-pager
-sudo systemctl status nginx --no-pager
-journalctl -u mywebsite -n 50 --no-pager
-```
-
-> 到此，生产部署闭环完成。  
-> 若任一步失败，不要跳步，回到对应步骤按日志修复后再继续。
